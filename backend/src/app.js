@@ -1,9 +1,16 @@
 import express from 'express';
+import { errorHandler } from './middleware/errorHandler.js';
 
-const app = express();
+export const app = express();
 
-app.get('/', (req, res) => {
-  res.send('Servidor a funcionar');
+app.use(express.json());
+
+app.get('/api/health', (req, res) => {
+  res.json({ok: true});
 });
 
-export default app;
+app.use((req, res) => {
+  res.status(404).json({error: 'Rota não encontrada', field: null});
+});
+
+app.use(errorHandler);
