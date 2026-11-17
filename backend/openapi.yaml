@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: Workstream API
+  version: 0.1.0
+  description: API do Workstream (gestão de pedidos de funcionalidades e roadmap).
+
+servers:
+  - url: /api
+
+tags:
+  - name: Sistema
+  - name: Autenticação
+  - name: Produtos
+
+paths:
+  /health:
+    get:
+      tags: [Sistema]
+      summary: Verifica se a API está a correr
+      security: []
+      responses:
+        '200':
+          description: A API está a correr
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /auth/register:
+    post:
+      tags: [Autenticação]
+      summary: Cria uma conta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: Conta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Já existe uma conta com este email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Já existe uma conta com esse email
+                field: email
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Inicia sessão e devolve um token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Sessão iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Email ou palavra-passe incorretos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Email ou palavra-passe incorretos
+                field: null
+
+  /auth/me:
+    get:
+      tags: [Autenticação]
+      summary: Devolve o utilizador com sessão e os seus produtos
+      responses:
+        '200':
+          description: Utilizador e produtos com o papel em cada um
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductMembership'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /products/{productId}/my-role:
+    get:
+      tags: [Produtos]
+      summary: Devolve o papel do utilizador neste produto
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: O papel do utilizador no produto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    $ref: '#/components/schemas/MemberRole'
+        '400':
+          description: Id do produto inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Produto inválido
+                field: productId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: O produto não existe ou o utilizador não é membro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Produto não encontrado
+                field: null
+
+# Por defeito, todos os endpoints exigem o token
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Dados inválidos ou em falta
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: A palavra-passe tem de ter pelo menos 8 caracteres
+            field: password
+    Unauthorized:
+      description: Sem sessão, ou sessão inválida ou expirada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Sessão em falta
+            field: null
+
+  schemas:
+    Error:
+      type: object
+      required: [error, field]
+      properties:
+        error:
+          type: string
+          description: Mensagem para mostrar ao utilizador
+        field:
+          type: string
+          nullable: true
+          description: Campo com o problema, ou null se o erro não for de um campo
+
+    RegisterInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: Sara Gomes
+        email:
+          type: string
+          format: email
+          example: sara.gomes@exemplo.pt
+        password:
+          type: string
+          minLength: 8
+          example: password123
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: ines.carvalho@exemplo.pt
+        password:
+          type: string
+          example: password123
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id do utilizador (BIGINT, devolvido como texto)
+          example: '1'
+        name:
+          type: string
+          example: Inês Carvalho
+        email:
+          type: string
+          example: ines.carvalho@exemplo.pt
+        created_at:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+          description: JWT a enviar no cabeçalho Authorization (Bearer)
+
+    MemberRole:
+      type: string
+      enum: [customer, product_manager, project_manager, developer]
+
+    ProductMembership:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: Atlas CRM
+        color:
+          type: string
+          nullable: true
+          example: stream
+        role:
+          $ref: '#/components/schemas/MemberRole'
