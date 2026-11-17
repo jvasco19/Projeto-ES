@@ -53,3 +53,13 @@ export async function login({email, password} = {}) {
 
     return {user: publicUser(user), token: signToken(user)};
 }
+
+export async function me(userId) {
+    const user = await repo.findById(userId);
+
+    // o utilizador pode ter sido apagado entretanto e o token ainda ser valido
+    if(!user) throw new HttpError(401, 'Sessao invalida');
+
+    const products = await repo.findProductsOfUser(userId);
+    return {user, products};
+}

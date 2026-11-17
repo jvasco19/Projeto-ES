@@ -9,3 +9,9 @@ export async function login(req, res) {
     const result = await service.login(req.body);
     res.json(result);
 }
+
+export async function me(req, res){
+    // req.user colocado por requireAuth
+    const result = await service.me(req.user.id);
+    res.json(result);
+}
