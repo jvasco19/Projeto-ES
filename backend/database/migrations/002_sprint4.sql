@@ -1,37 +1,37 @@
 CREATE TYPE feature_status AS ENUM(
-    'por_fazer',
-    'em_curso',
-    'em_revisao',
-    'concluido'
+    'todo',
+    'in_progress',
+    'in_review',
+    'done'
 );
 
 CREATE TYPE release_status AS ENUM(
-    'planeada',
-    'em_curso',
-    'concluida'
+    'planned',
+    'in_progress',
+    'done'
 );
 
 CREATE TYPE request_category AS ENUM(
-    'relatorios',
-    'integracoes',
-    'notificacoes',
-    'usabilidade',
-    'desempenho',
-    'seguranca'
+    'reports',
+    'integrations',
+    'notifications',
+    'usability',
+    'performance',
+    'security'
 );
 
 CREATE TYPE request_status AS ENUM(
-    'submetido',
-    'em_analise',
-    'aprovado',
-    'planeado',
-    'entregue',
-    'rejeitado'
+    'submitted',
+    'in_review',
+    'approved',
+    'planned',
+    'delivered',
+    'rejected'
 );
 
 CREATE TYPE story_state AS ENUM(
-    'rascunho',
-    'confirmada'
+    'draft',
+    'confirmed'
 );
 
 
@@ -70,7 +70,7 @@ CREATE TABLE releases (
     objective TEXT,
     start_date DATE,
     end_date DATE,
-    status release_status NOT NULL DEFAULT 'planeada', 
+    status release_status NOT NULL DEFAULT 'planned', 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(product_id, name)
 );
@@ -86,12 +86,12 @@ CREATE TABLE feature_requests (
     impact TEXT,
     importance SMALLINT CHECK (importance BETWEEN 1 AND 5),
     category request_category,
-    status request_status NOT NULL DEFAULT 'submetido',
+    status request_status NOT NULL DEFAULT 'submitted',
     rejection_reason TEXT,
     is_public BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (status <> 'rejeitado' OR rejection_reason IS NOT NULL)
+    CHECK (status <> 'rejected' OR rejection_reason IS NOT NULL)
 );
 CREATE INDEX feature_requests_product_status_idx ON feature_requests (product_id, status);
 CREATE INDEX feature_requests_author_id_idx ON feature_requests (author_id);
@@ -112,7 +112,7 @@ CREATE TABLE attachments (
     uploaded_by BIGINT NOT NULL REFERENCES users(id),
     file_name TEXT NOT NULL,
     mime_type TEXT NOT NULL,
-    size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
+    size_bytes BIGINT NOT NULL CHECK (size_bytes BETWEEN 1 AND 5242880),
     storage_path TEXT NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -152,7 +152,7 @@ CREATE TABLE features (
     release_id BIGINT REFERENCES releases(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     description TEXT,
-    status feature_status NOT NULL DEFAULT 'por_fazer',
+    status feature_status NOT NULL DEFAULT 'todo',
     impact SMALLINT CHECK (impact BETWEEN 1 AND 10),
     effort SMALLINT CHECK (effort BETWEEN 1 AND 10),
     priority SMALLINT GENERATED ALWAYS AS (ROUND(impact * 10.0 / effort)::SMALLINT) STORED,
@@ -162,10 +162,10 @@ CREATE TABLE features (
     end_date DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (end_date >= start_date)
+    CHECK (end_date >= start_date),
+    UNIQUE(request_id)
 );
 CREATE INDEX features_product_priority_idx ON features (product_id, priority DESC);
-CREATE INDEX features_request_id_idx ON features (request_id);
 CREATE INDEX features_team_id_idx ON features (team_id);
 CREATE INDEX features_assignee_id_idx ON features (assignee_id);
 CREATE INDEX features_release_id_idx ON features (release_id);
@@ -186,13 +186,14 @@ CREATE TABLE user_stories (
     role TEXT NOT NULL,
     goal TEXT NOT NULL,
     benefit TEXT NOT NULL,
-    state story_state NOT NULL DEFAULT 'rascunho',
+    state story_state NOT NULL DEFAULT 'confirmed',
     ai_generated BOOLEAN NOT NULL DEFAULT false,
     created_by BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(feature_id) 
 );
-CREATE INDEX user_stories_feature_id_idx ON user_stories (feature_id);
+
 
 CREATE TABLE acceptance_criteria (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -201,6 +202,6 @@ CREATE TABLE acceptance_criteria (
     text TEXT NOT NULL,
     created_by BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(story_id, position)
 );
-CREATE INDEX acceptance_criteria_story_idx ON acceptance_criteria (story_id, position);
