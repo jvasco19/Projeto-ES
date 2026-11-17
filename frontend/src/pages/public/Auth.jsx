@@ -5,8 +5,8 @@ import { Icon } from '../../components/Icon.jsx'
 import { Logo } from '../../components/ui.jsx'
 import { customerProducts, products } from '../../data/mockData.js'
 import { fakeRequest } from '../../data/useData.js'
-import { login } from '../../lib/auth.js'
-
+import { saveSession } from '../../lib/auth.js'
+import { api } from '../../lib/api.js'
 const emailPattern = /^\S+@\S+\.\S+$/
 
 function AuthFrame({ title, description, children, footer }) {
@@ -29,7 +29,7 @@ function AuthFrame({ title, description, children, footer }) {
 
 // Quando o utilizador chega pelo link de um produto, mostra para onde vai o pedido.
 function LinkContext({ next }) {
-  const id = next?.match(/^\/me\/novo\/([^/]+)/)?.[1]
+  const id = next?.match(/^\/me\/new\/([^/]+)/)?.[1]
   const product = [...products, ...customerProducts].find((p) => p.id === id)
   if (!product) return null
   return (
@@ -39,24 +39,32 @@ function LinkContext({ next }) {
   )
 }
 
-function useAuthSubmit() {
+function useAuthSubmit(path) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = params.get('next')
   const [loading, setLoading] = useState(false)
+  const [serverError, setServerError] = useState(null);
 
-  async function submit() {
+  async function submit(body, setErrors) {
     setLoading(true)
-    await fakeRequest(700)
-    login()
-    navigate(next && next.startsWith('/') ? next : '/me', { replace: true })
+    setServerError(null)
+    try {
+        const session = await api(path, {method: 'POST', body})
+        saveSession(session)
+        navigate(next && next.startsWith('/') ? next : '/me', { replace: true }) 
+    } catch (err) {
+      if (err.field) setErrors({[err.field]: err.message});
+      else setServerError(err.message)
+      setLoading(false)
+    }
   }
 
-  return { next, loading, submit }
+  return { next, loading, serverError, submit }
 }
 
 export function Login() {
-  const { next, loading, submit } = useAuthSubmit()
+  const { next, loading, serverError, submit } = useAuthSubmit('/auth/login')
   const [form, setForm] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({})
 
@@ -66,7 +74,7 @@ export function Login() {
     if (!emailPattern.test(form.email)) err.email = 'Introduz um email válido'
     if (!form.password) err.password = 'Introduz a palavra-passe'
     setErrors(err)
-    if (!Object.keys(err).length) submit()
+    if (!Object.keys(err).length) submit(form, setErrors)
   }
 
   const nextQuery = next ? `?next=${encodeURIComponent(next)}` : ''
@@ -78,6 +86,7 @@ export function Login() {
       footer={<>Ainda não tens conta? <Anchor component={Link} to={`/register${nextQuery}`}>Criar conta</Anchor></>}
     >
       <LinkContext next={next} />
+      {serverError && <Alert color="red" variant="light">{serverError}</Alert>}
       <form onSubmit={onSubmit} noValidate>
         <Stack>
           <TextInput label="Email" type="email" autoComplete="email" placeholder="nome@empresa.pt"
@@ -93,7 +102,7 @@ export function Login() {
 }
 
 export function Register() {
-  const { next, loading, submit } = useAuthSubmit()
+  const { next, loading, serverError, submit } = useAuthSubmit('/auth/register')
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [errors, setErrors] = useState({})
 
@@ -104,7 +113,7 @@ export function Register() {
     if (!emailPattern.test(form.email)) err.email = 'Introduz um email válido'
     if (form.password.length < 8) err.password = 'A palavra-passe precisa de pelo menos 8 caracteres'
     setErrors(err)
-    if (!Object.keys(err).length) submit()
+    if (!Object.keys(err).length) submit(form, setErrors)
   }
 
   const nextQuery = next ? `?next=${encodeURIComponent(next)}` : ''
@@ -116,6 +125,7 @@ export function Register() {
       footer={<>Já tens conta? <Anchor component={Link} to={`/login${nextQuery}`}>Entrar</Anchor></>}
     >
       <LinkContext next={next} />
+      {serverError && <Alert color="red" variant="light">{serverError}</Alert>}
       <form onSubmit={onSubmit} noValidate>
         <Stack>
           <TextInput label="Nome" autoComplete="name" value={form.name} error={errors.name}

@@ -1,25 +1,44 @@
-// Sessao simulada. Quando houver backend guardar aqui o token JWT devolvido pela API
-const KEY = 'ws-session'
+// Sessão do utilizador: o token JWT e os dados devolvidos pela API no login
+const TOKEN_KEY = 'ws-token';
+const USER_KEY = 'ws-user';
 
-export function isLoggedIn() {
+function read(key){
   try {
-    return localStorage.getItem(KEY) === '1'
+    return localStorage.getItem(key);
   } catch {
-    return false
+    return null;
   }
 }
 
-export function login() {
+export function getToken(){
+  return read(TOKEN_KEY);
+}
+
+export function isLoggedIn() {
+  return Boolean(getToken());
+}
+
+export function getUser() {
   try {
-    localStorage.setItem(KEY, '1')
+    return JSON.parse(read(USER_KEY))
   } catch {
-    // sem armazenamento disponivel: a sessao dura apenas ate recarregar
+    return null
+  }
+}
+
+export function saveSession({ token, user }) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(USER_KEY, JSON.stringify(user))
+  } catch {
+    // sem armazenamento disponivel, a sessao dura apenas ate recarregar
   }
 }
 
 export function logout() {
   try {
-    localStorage.removeItem(KEY)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
   } catch {
     // ignorar
   }
