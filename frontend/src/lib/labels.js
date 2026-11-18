@@ -7,8 +7,8 @@ export const roleLabels = {
 }
 
 export const roleHints = {
-  product_manager: 'Gere pedidos, backlog e User Stories',
-  project_manager: 'Gere equipas, releases e milestones',
+  product_manager: 'Product Owner: gere pedidos, backlog e User Stories',
+  project_manager: 'Scrum Master: gere equipas, releases e milestones',
   developer: 'Equipa de desenvolvimento: atualiza o estado do trabalho',
 }
 
@@ -19,6 +19,12 @@ export const requestStatus = {
   planeado: { label: 'Planeado', color: 'stream', icon: 'event' },
   entregue: { label: 'Entregue', color: 'green', icon: 'rocket_launch' },
   rejeitado: { label: 'Rejeitado', color: 'red', icon: 'cancel' },
+  submitted: { label: 'Submetido', color: 'gray', icon: 'send' },
+  in_review: { label: 'Em análise', color: 'yellow', icon: 'manage_search' },
+  approved: { label: 'Aprovado', color: 'teal', icon: 'check_circle' },
+  planned: { label: 'Planeado', color: 'stream', icon: 'event' },
+  delivered: { label: 'Entregue', color: 'green', icon: 'rocket_launch' },
+  rejected: { label: 'Rejeitado', color: 'red', icon: 'cancel' },
 }
 
 export const featureStatus = {
@@ -42,9 +48,11 @@ export const releaseStatus = {
   planeada: { label: 'Planeada', color: 'gray' },
 }
 
-// Permissões por papel, de acordo com as user stories.
+// Permissões por papel, de acordo com as user stories e com os papéis Scrum.
 const permissions = {
+  // Product Owner
   product_manager: ['triage', 'backlog', 'priority', 'story', 'sprintPlan', 'decision', 'estimate', 'editFeature'],
+  // Scrum Master
   project_manager: ['releases', 'teams', 'milestones', 'settings', 'assignTeam', 'assign', 'sprints'],
   // Equipa de desenvolvimento (atribui-se a si própria)
   developer: ['status', 'selfAssign', 'estimate'],

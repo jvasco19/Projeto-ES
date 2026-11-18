@@ -5,14 +5,25 @@ import {
 } from '@mantine/core'
 import { Icon } from '../../components/Icon.jsx'
 import { Empty, PageLoader, StatusBadge } from '../../components/ui.jsx'
-import { useData } from '../../data/useData.js'
-import { notifyError, notifyInfo, notifySuccess, useAction } from '../../lib/feedback.jsx'
+import { useApi } from '../../data/useApi.js'
+import { api } from '../../lib/api.js'
+import { notifyError, notifyInfo, notifySuccess } from '../../lib/feedback.jsx'
 
 const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf', 'text/plain',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 const maxSize = 5 * 1024 * 1024
 
-// pesquisar pedidos existentes e votar
+// Valores do enum request_category (API) e o texto mostrado no ecrã.
+const categories = [
+  { value: 'reports', label: 'Relatórios' },
+  { value: 'integrations', label: 'Integrações' },
+  { value: 'notifications', label: 'Notificações' },
+  { value: 'usability', label: 'Usabilidade' },
+  { value: 'performance', label: 'Desempenho' },
+  { value: 'security', label: 'Segurança' },
+]
+
+// Passo 1: pesquisar pedidos existentes e votar (US14)
 function SearchStep({ requests, onVote, onCreate }) {
   const [query, setQuery] = useState('')
   const results = requests.filter((r) => r.title.toLowerCase().includes(query.trim().toLowerCase()))
@@ -45,7 +56,7 @@ function SearchStep({ requests, onVote, onCreate }) {
                 <Text fw={500}>{r.title}</Text>
                 <Group gap="xs" mt={4}>
                   <StatusBadge status={r.status} size="sm" />
-                  <Text size="xs" c="dimmed">{r.votes} votos</Text>
+                  <Text size="xs" c="dimmed">{r.votes ?? 0} votos</Text>
                 </Group>
               </div>
               <Tooltip label={r.votedByMe ? 'Já votaste' : 'Votar neste pedido'}>
@@ -74,11 +85,11 @@ function SearchStep({ requests, onVote, onCreate }) {
 }
 
 // Passo 2: formulário do pedido (US13)
-function FormStep({ initialTitle, categories, onBack, onSubmitted }) {
+function FormStep({ productId, initialTitle, onBack, onSubmitted }) {
   const [form, setForm] = useState({ title: initialTitle, description: '', category: null })
   const [files, setFiles] = useState([])
   const [errors, setErrors] = useState({})
-  const [run, loading] = useAction()
+  const [loading, setLoading] = useState(false)
 
   function onFiles(selected) {
     const valid = []
@@ -90,14 +101,25 @@ function FormStep({ initialTitle, categories, onBack, onSubmitted }) {
     setFiles(valid)
   }
 
-  function submit() {
+  async function submit() {
     const err = {}
     if (!form.title.trim()) err.title = 'Indica um título'
     if (!form.description.trim()) err.description = 'Descreve o que precisas'
     if (!form.category) err.category = 'Escolhe uma categoria'
     setErrors(err)
     if (Object.keys(err).length) return notifyError('Preenche os campos assinalados.', 'Faltam campos obrigatórios')
-    run(null, () => onSubmitted(form))
+
+    setLoading(true)
+    try {
+      const created = await api(`/products/${productId}/requests`, { method: 'POST', body: form })
+      // Os anexos (files) são enviados aqui quando existir o endpoint POST /requests/:id/attachments.
+      onSubmitted(created)
+    } catch (e) {
+      // Erro de um campo (400): aparece por baixo desse campo. Outros erros: notificação.
+      if (e.field) setErrors({ [e.field]: e.message })
+      else notifyError(e.message)
+      setLoading(false)
+    }
   }
 
   return (
@@ -131,18 +153,19 @@ function FormStep({ initialTitle, categories, onBack, onSubmitted }) {
 
 export default function SubmitRequest() {
   const { productId } = useParams()
-  const { data, loading } = useData((s) => ({
-    product: [...s.customerProducts, ...s.products].find((p) => p.id === productId),
-    requests: s.publicRequests,
-    categories: s.requestCategories,
-  }))
+  const me = useApi('/auth/me')
+  const publicRequests = useApi(`/products/${productId}/requests/public`)
   const [step, setStep] = useState(0)
   const [title, setTitle] = useState('')
   const [requests, setRequests] = useState(null)
   const [submitted, setSubmitted] = useState(null)
 
-  if (loading) return <PageLoader rows={1} />
-  if (!data.product) {
+  if (me.loading || publicRequests.loading) return <PageLoader rows={1} />
+
+  // Só os produtos onde o utilizador é cliente. Os ids da API são texto, tal como o do URL.
+  const product = me.data?.products.find((p) => p.id === productId && p.role === 'customer')
+  const data = { product, requests: publicRequests.data ?? [] }
+  if (!data.product || publicRequests.error) {
     return <Empty icon="link_off" title="Produto não encontrado" description="Abre novamente o link que a equipa te enviou." />
   }
 
@@ -151,7 +174,7 @@ export default function SubmitRequest() {
   function vote(id) {
     const target = list.find((r) => r.id === id)
     if (target.votedByMe) return notifyInfo('O teu voto já está registado neste pedido.', 'Já votaste')
-    setRequests(list.map((r) => (r.id === id ? { ...r, votes: r.votes + 1, votedByMe: true } : r)))
+    setRequests(list.map((r) => (r.id === id ? { ...r, votes: (r.votes ?? 0) + 1, votedByMe: true } : r)))
     notifySuccess('Voto registado. Vais ser notificado quando o estado mudar.')
   }
 
@@ -167,7 +190,7 @@ export default function SubmitRequest() {
           <SearchStep requests={list} onVote={vote} onCreate={(q) => { setTitle(q); setStep(1) }} />
         </Stepper.Step>
         <Stepper.Step label="Descrever" description="Detalhes e anexos">
-          <FormStep initialTitle={title} categories={data.categories} onBack={() => setStep(0)} onSubmitted={(form) => { setSubmitted(form); setStep(2) }} />
+          <FormStep productId={productId} initialTitle={title} onBack={() => setStep(0)} onSubmitted={(created) => { setSubmitted(created); setStep(2) }} />
         </Stepper.Step>
         <Stepper.Completed>
           <Card>
@@ -179,8 +202,8 @@ export default function SubmitRequest() {
               </Text>
               <Card w="100%" maw={480} ta="left" mt="sm" bg="var(--ws-subtle)">
                 <Group justify="space-between" wrap="nowrap">
-                  <Text size="xs" c="dimmed" ff="monospace">R-1061</Text>
-                  <StatusBadge status="submetido" size="sm" />
+                  <Text size="xs" c="dimmed" ff="monospace">R-{submitted?.id}</Text>
+                  <StatusBadge status={submitted?.status} size="sm" />
                 </Group>
                 <Text fw={500} mt={4}>{submitted?.title}</Text>
                 <Text size="sm" c="dimmed" lineClamp={2}>{submitted?.description}</Text>
