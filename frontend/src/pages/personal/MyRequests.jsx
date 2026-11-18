@@ -5,6 +5,7 @@ import { Button, Card, Grid, Group, Menu, SegmentedControl, Stack, Text, TextInp
 import { Icon } from '../../components/Icon.jsx'
 import { ChartCard, Empty, PageHeader, PageLoader, StatusBadge } from '../../components/ui.jsx'
 import { useData } from '../../data/useData.js'
+import { useApi } from '../../data/useApi.js'
 
 const filters = {
   todos: () => true,
@@ -15,7 +16,10 @@ const filters = {
 
 export default function MyRequests() {
   const navigate = useNavigate()
-  const { data, loading } = useData((s) => ({ requests: s.myRequests, stats: s.myRequestStats, products: s.customerProducts }))
+  const { data, loading } = useData((s) => ({ requests: s.myRequests, stats: s.myRequestStats }))
+  // Produtos reais onde o utilizador é cliente (ids numéricos da API)
+  const me = useApi('/auth/me')
+  const products = (me.data?.products ?? []).filter((p) => p.role === 'customer')
   const [filter, setFilter] = useState('todos')
   const [query, setQuery] = useState('')
 
@@ -44,7 +48,7 @@ export default function MyRequests() {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>Enviar pedido para</Menu.Label>
-              {data.products.map((p) => (
+              {products.map((p) => (
                 <Menu.Item key={p.id} onClick={() => navigate(`/me/new/${p.id}`)}>
                   <Text size="sm">{p.name}</Text>
                   <Text size="xs" c="dimmed">{p.company}</Text>
