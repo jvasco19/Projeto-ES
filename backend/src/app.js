@@ -4,6 +4,7 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { requireRole } from './middleware/requireRole.js';
 import { requestsRouter } from './modules/requests/requests.routes.js';
+import { meRouter } from './modules/me/me.routes.js';
 
 export const app = express();
 
@@ -14,6 +15,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/me', requireAuth, meRouter);
 
 app.get('/api/products/:productId/my-role',
   requireAuth,
