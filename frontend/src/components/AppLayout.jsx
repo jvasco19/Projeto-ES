@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import {
   ActionIcon, AppShell, Avatar, Badge, Burger, Button, Center, Divider, Group, Indicator, Menu, Modal, NavLink,
@@ -7,9 +7,10 @@ import {
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Spotlight, spotlight } from '@mantine/spotlight'
 import '@mantine/spotlight/styles.css'
-// A barra lateral lê diretamente da store para não piscar entre páginas.
-import { backlog, myRequests, notifications, products, releases, triageRequests } from '../data/mockData.js'
+// A barra lateral lê diretamente dos dados de teste para não piscar entre páginas.
+import { backlog, myRequests, products, releases, triageRequests } from '../data/mockData.js'
 import { useApi } from '../data/useApi.js'
+import { getReadIds } from '../lib/readNotifications.js'
 import { can, roleLabels } from '../lib/labels.js'
 import { isLoggedIn, logout } from '../lib/auth.js'
 import { notifyError, useAction } from '../lib/feedback.jsx'
@@ -201,6 +202,14 @@ export function AppLayout() {
   // Aceita a resposta como { ...utilizador, products } ou { user, products }
   const user = me.data?.user ?? me.data ?? {}
   const initials = (user.name ?? '').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  // Notificacoes, o contador volta a ser calculado quando alguma é marcada como lida
+  const notifications = useApi('/me/notifications')
+  const [, setReadVersion] = useState(0)
+  useEffect(() => {
+    const refresh = () => setReadVersion((v) => v + 1)
+    window.addEventListener('ws-notifications-read', refresh)
+    return () => window.removeEventListener('ws-notifications-read', refresh)
+  }, [])
 
   const match = matchPath('/p/:productId/*', location.pathname)
   const allProducts = [...teamProducts, ...created]
@@ -211,7 +220,8 @@ export function AppLayout() {
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
   }
 
-  const unread = notifications.filter((n) => !n.read).length
+  const readIds = getReadIds()
+  const unread = (notifications.data ?? []).filter((n) => !readIds.has(String(n.id))).length
   const base = product ? `/p/${product.id}` : ''
   const section = match?.params['*']?.split('/')[0] ?? ''
   const emptySection = product?.isNew && emptySections[section]

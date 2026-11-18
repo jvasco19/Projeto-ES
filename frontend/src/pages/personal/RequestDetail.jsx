@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Anchor, Breadcrumbs, Button, Card, Grid, Group, Modal, Stack, Text, TextInput, Textarea, Timeline, Title } from '@mantine/core'
 import { Icon } from '../../components/Icon.jsx'
 import { Empty, PageLoader, StatusBadge } from '../../components/ui.jsx'
-import { useData } from '../../data/useData.js'
+import { useApi } from '../../data/useApi.js'
 import { notifyError, useAction } from '../../lib/feedback.jsx'
 import { requestStatus } from '../../lib/labels.js'
+import { formatDate } from '../../lib/format.js'
 
 function EditModal({ request, onClose, onSave }) {
   const [form, setForm] = useState({ title: request.title, description: request.description })
@@ -30,7 +31,8 @@ function EditModal({ request, onClose, onSave }) {
 export default function RequestDetail() {
   const { requestId } = useParams()
   const navigate = useNavigate()
-  const { data, loading } = useData((s) => s.myRequests.find((r) => r.id === requestId))
+  // 403 (pedido de outro cliente), 404 ou 400 deixam data a null e mostram "Acesso negado"
+  const { data, loading } = useApi(`/me/requests/${requestId}`)
   const [edits, setEdits] = useState(null)
   const [modal, setModal] = useState(null)
   const [runWithdraw, withdrawing] = useAction()
@@ -38,7 +40,6 @@ export default function RequestDetail() {
   if (loading) return <PageLoader rows={1} />
   const request = data && { ...data, ...edits }
 
-  // !!!
   if (!request) {
     return (
       <Card>
@@ -55,16 +56,16 @@ export default function RequestDetail() {
     <>
       <Breadcrumbs mb="md" separator={<Icon name="chevron_right" size={16} />}>
         <Anchor component={Link} to="/me" size="sm">Os meus pedidos</Anchor>
-        <Text size="sm" c="dimmed">{request.id}</Text>
+        <Text size="sm" c="dimmed">R-{request.id}</Text>
       </Breadcrumbs>
 
       <Group justify="space-between" align="flex-start" mb="xl">
         <div style={{ flex: '1 1 400px' }}>
           <Title order={1} size="h2">{request.title}</Title>
-          <Text c="dimmed" mt={6}>{request.productName} · enviado a {request.submittedAt}</Text>
+          <Text c="dimmed" mt={6}>{request.productName} · enviado a {formatDate(request.createdAt)}</Text>
         </div>
         <Group gap="sm">
-          {request.status === 'submetido' && (
+          {request.status === 'submitted' && (
             <>
               <Button variant="default" leftSection={<Icon name="edit" size={18} />} onClick={() => setModal('edit')}>Editar</Button>
               <Button variant="subtle" color="red" onClick={() => setModal('withdraw')}>Retirar pedido</Button>
@@ -73,7 +74,7 @@ export default function RequestDetail() {
           <StatusBadge status={request.status} size="lg" />
         </Group>
       </Group>
-      {request.status === 'submetido' && (
+      {request.status === 'submitted' && (
         <Text size="sm" c="dimmed" mt={-16} mb="lg">Podes editar ou retirar o pedido até a equipa o começar a analisar.</Text>
       )}
       {modal === 'edit' && <EditModal request={request} onClose={() => setModal(null)} onSave={setEdits} />}
@@ -90,7 +91,7 @@ export default function RequestDetail() {
       <Grid gutter="lg">
         <Grid.Col span={{ base: 12, md: 7 }}>
           <Stack gap="lg">
-            {request.status === 'rejeitado' && (
+            {request.status === 'rejected' && (
               <Alert color="red" variant="light" icon={<Icon name="info" />} title="Motivo da rejeição">
                 {request.rejectionReason}
               </Alert>
@@ -106,16 +107,16 @@ export default function RequestDetail() {
               {request.attachments.length > 0 && (
                 <Group gap="xs" mt="md">
                   {request.attachments.map((a) => (
-                    <Group key={a} gap={6} px="sm" py={4} style={{ border: '1px solid var(--ws-border)', borderRadius: 8 }}>
+                    <Group key={a.id} gap={6} px="sm" py={4} style={{ border: '1px solid var(--ws-border)', borderRadius: 8 }}>
                       <Icon name="attach_file" size={16} />
-                      <Text size="sm">{a}</Text>
+                      <Text size="sm">{a.fileName}</Text>
                     </Group>
                   ))}
                 </Group>
               )}
               <Group gap={6} mt="md" c="dimmed">
                 <Icon name="thumb_up" size={16} />
-                <Text size="sm">{request.votes} clientes apoiam este pedido</Text>
+                <Text size="sm">{request.votes ?? 0} clientes apoiam este pedido</Text>
               </Group>
             </Card>
           </Stack>
@@ -131,10 +132,10 @@ export default function RequestDetail() {
                   <Timeline.Item
                     key={t.status}
                     bullet={<Icon name={info.icon} size={15} />}
-                    color={t.status === 'rejeitado' ? 'red' : 'stream'}
+                    color={t.status === 'rejected' ? 'red' : 'stream'}
                     title={<Text size="sm" fw={500} c={t.date ? undefined : 'dimmed'}>{info.label}</Text>}
                   >
-                    <Text size="xs" c="dimmed">{t.date ?? 'Ainda não aconteceu'}</Text>
+                    <Text size="xs" c="dimmed">{t.date ? formatDate(t.date) : 'Ainda não aconteceu'}</Text>
                   </Timeline.Item>
                 )
               })}

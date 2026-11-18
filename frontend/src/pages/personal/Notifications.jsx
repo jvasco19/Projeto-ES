@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { ActionIcon, Button, Card, Group, SegmentedControl, Text, ThemeIcon, Tooltip, UnstyledButton } from '@mantine/core'
 import { Icon } from '../../components/Icon.jsx'
 import { Empty, PageHeader, PageLoader } from '../../components/ui.jsx'
-import { useData } from '../../data/useData.js'
+import { useApi } from '../../data/useApi.js'
 import { notifySuccess } from '../../lib/feedback.jsx'
+import { requestStatus } from '../../lib/labels.js'
+import { formatDate } from '../../lib/format.js'
+import { getReadIds, markAsRead } from '../../lib/readNotifications.js'
 
 const types = {
   risk: { icon: 'warning', color: 'red' },
@@ -16,13 +19,25 @@ const types = {
 
 export default function Notifications() {
   const navigate = useNavigate()
-  const { data, loading } = useData((s) => s.notifications)
-  const [items, setItems] = useState(null)
+  const { data, loading } = useApi('/me/notifications')
+  const [readIds, setReadIds] = useState(getReadIds)
   const [filter, setFilter] = useState('todas')
 
   if (loading) return <PageLoader rows={1} />
 
-  const list = items ?? data
+  // Converte o formato da API para o que a lista mostra
+  const list = (data ?? []).map((n) => ({
+    ...n,
+    title: `O teu pedido R-${n.requestId} passou a "${requestStatus[n.status]?.label ?? n.status}"`,
+    detail: n.requestTitle,
+    time: formatDate(n.createdAt),
+    read: readIds.has(String(n.id)),
+  }))
+
+  function read(ids) {
+    markAsRead(ids)
+    setReadIds(getReadIds())
+  }
   const visible = filter === 'todas' ? list : list.filter((n) => !n.read)
 
   return (
@@ -32,7 +47,7 @@ export default function Notifications() {
         description="Menções, alterações de requisitos, alertas de risco e mudanças de estado dos teus pedidos."
         actions={
           <Button variant="default" leftSection={<Icon name="done_all" size={18} />}
-            onClick={() => { setItems(list.map((n) => ({ ...n, read: true }))); notifySuccess('Todas as notificações marcadas como lidas.') }}>
+            onClick={() => { read(list.map((n) => n.id)); notifySuccess('Todas as notificações marcadas como lidas.') }}>
             Marcar todas como lidas
           </Button>
         }
@@ -48,7 +63,7 @@ export default function Notifications() {
             <UnstyledButton
               key={n.id}
               className="row-link"
-              onClick={() => { setItems(list.map((x) => (x.id === n.id ? { ...x, read: true } : x))); navigate(n.link) }}
+              onClick={() => { read([n.id]); navigate(n.link) }}
               w="100%"
               px="md"
               py="sm"
@@ -67,7 +82,7 @@ export default function Notifications() {
                   {!n.read && (
                     <Tooltip label="Marcar como lida">
                       <ActionIcon component="span" variant="subtle" size="sm" aria-label="Marcar como lida"
-                        onClick={(e) => { e.stopPropagation(); setItems(list.map((x) => (x.id === n.id ? { ...x, read: true } : x))) }}>
+                        onClick={(e) => { e.stopPropagation(); read([n.id]) }}>
                         <span style={{ width: 8, height: 8, borderRadius: 99, background: 'var(--mantine-color-stream-6)' }} />
                       </ActionIcon>
                     </Tooltip>

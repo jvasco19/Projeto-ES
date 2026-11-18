@@ -4,20 +4,20 @@ import { DonutChart } from '@mantine/charts'
 import { Button, Card, Grid, Group, Menu, SegmentedControl, Stack, Text, TextInput } from '@mantine/core'
 import { Icon } from '../../components/Icon.jsx'
 import { ChartCard, Empty, PageHeader, PageLoader, StatusBadge } from '../../components/ui.jsx'
-import { useData } from '../../data/useData.js'
 import { useApi } from '../../data/useApi.js'
+import { formatDate } from '../../lib/format.js'
 
 const filters = {
   todos: () => true,
-  curso: (r) => ['submetido', 'em_analise', 'aprovado', 'planeado'].includes(r.status),
-  entregues: (r) => r.status === 'entregue',
-  rejeitados: (r) => r.status === 'rejeitado',
+  curso: (r) => ['submitted', 'in_review', 'approved', 'planned'].includes(r.status),
+  entregues: (r) => r.status === 'delivered',
+  rejeitados: (r) => r.status === 'rejected',
 }
 
 export default function MyRequests() {
   const navigate = useNavigate()
-  const { data, loading } = useData((s) => ({ requests: s.myRequests, stats: s.myRequestStats }))
-  // Produtos reais onde o utilizador é cliente (ids numéricos da API)
+  const { data: requests, loading } = useApi('/me/requests')
+  // Produtos reais onde o utilizador e cliente (ids numéricos da API)
   const me = useApi('/auth/me')
   const products = (me.data?.products ?? []).filter((p) => p.role === 'customer')
   const [filter, setFilter] = useState('todos')
@@ -25,15 +25,26 @@ export default function MyRequests() {
 
   if (loading) return <PageLoader rows={1} />
 
-  const list = data.requests
+  const all = requests ?? []
+  // Contagens do grafico calculadas a partir dos pedidos reais
+  const count = (...statuses) => all.filter((r) => statuses.includes(r.status)).length
+  const stats = {
+    total: all.length,
+    emAnalise: count('submitted', 'in_review', 'approved'),
+    planeados: count('planned'),
+    entregues: count('delivered'),
+    rejeitados: count('rejected'),
+  }
+
+  const list = all
     .filter(filters[filter])
     .filter((r) => r.title.toLowerCase().includes(query.toLowerCase()))
 
   const donut = [
-    { name: 'Em análise', value: data.stats.emAnalise, color: 'yellow.5' },
-    { name: 'Planeados', value: data.stats.planeados, color: 'stream.6' },
-    { name: 'Entregues', value: data.stats.entregues, color: 'green.6' },
-    { name: 'Rejeitados', value: data.stats.rejeitados, color: 'red.5' },
+    { name: 'Em análise', value: stats.emAnalise, color: 'yellow.5' },
+    { name: 'Planeados', value: stats.planeados, color: 'stream.6' },
+    { name: 'Entregues', value: stats.entregues, color: 'green.6' },
+    { name: 'Rejeitados', value: stats.rejeitados, color: 'red.5' },
   ]
 
   return (
@@ -108,7 +119,7 @@ export default function MyRequests() {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <Text fw={500} lineClamp={2}>{r.title}</Text>
                     <Text size="xs" c="dimmed" mt={2}>
-                      {r.productName} · enviado a {r.submittedAt} · {r.votes} votos
+                      {r.productName} · enviado a {formatDate(r.createdAt)} · {r.votes ?? 0} votos
                     </Text>
                   </div>
                   <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
@@ -123,9 +134,9 @@ export default function MyRequests() {
 
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Stack gap="lg">
-            <ChartCard title="Estado dos pedidos" description={`${data.stats.total} pedidos enviados`}>
+            <ChartCard title="Estado dos pedidos" description={`${stats.total} pedidos enviados`}>
               <Group justify="center">
-                <DonutChart data={donut} size={160} thickness={22} withTooltip chartLabel={data.stats.total} />
+                <DonutChart data={donut} size={160} thickness={22} withTooltip chartLabel={stats.total} />
               </Group>
               <Stack gap={6} mt="md">
                 {donut.map((d) => (
