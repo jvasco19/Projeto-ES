@@ -1,5 +1,6 @@
 import { HttpError } from '../../utils/HttpError.js';
 import * as repo from './requests.repository.js';
+import fs from 'node:fs/promises'
 
 const CATEGORIES = ['reports', 'integrations', 'notifications', 'usability', 'performance', 'security'];
 
@@ -37,4 +38,33 @@ export async function create(productId, authorId, data = {}) {
 export async function listPublic(productId, search) {
     const text = typeof search === 'string' ? search.trim() : '';
     return repo.findPublic(productId, text || null);
+}
+
+// Corrige o nome original do ficheiro
+// - o multer pode entregar o nome em latin1 (acentos trocados) ou já correto
+// - o macOS separa os acentos das letras (NFD), por isso juntam-se com normalize('NFC')
+// - caracteres de controlo (como 0x00) são retirados porque o PostgreSQL não os aceita
+function decodeFileName(name) {
+    const fixed = /[^\u0000-\u00ff]/.test(name) ? name : Buffer.from(name, 'latin1').toString('utf8');
+    const result = fixed.includes('\uFFFD') ? name : fixed;
+    return result.replace(/[\u0000-\u001f\u007f]/g, '').normalize('NFC').slice(0, 255) || 'ficheiro';
+}
+
+export async function addAttachment(userId, requestId, file) {
+    if (!file) throw new HttpError(400, 'Escolhe um ficheiro', 'file');
+
+    try {
+        return await repo.insertAttachment({
+            requestId,
+            fileName: decodeFileName(file.originalname),
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+            storagePath: file.filename,
+            uploadedBy: userId,
+        });
+    } catch (err) {
+        await fs.unlink(file.path).catch(() => {});
+        throw err;
+    }
+    
 }

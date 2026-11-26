@@ -51,3 +51,23 @@ export async function findPublic(productId, search) {
     );
     return rows;
 }
+
+// autor de um pedido ou null se nao exisitr
+export async function findRequestAuthor(requestId) {
+    const { rows } = await query(
+        'SELECT author_id AS "authorId" FROM feature_requests WHERE id = $1',
+        [requestId]
+    ) ;
+    return rows[0]?.authorId ?? null;
+}
+
+// guarda os dados do anexo
+export async function insertAttachment({ requestId, fileName, mimeType, sizeBytes, storagePath, uploadedBy }) {
+    const { rows } = await query(
+        `INSERT INTO attachments (request_id, file_name, mime_type, size_bytes, storage_path, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, file_name AS "fileName"`,
+        [requestId, fileName, mimeType, sizeBytes, storagePath, uploadedBy]
+    );
+    return rows[0];
+}
