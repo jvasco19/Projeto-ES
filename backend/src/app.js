@@ -3,6 +3,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { requireRole } from './middleware/requireRole.js';
+import { requestsRouter } from './modules/requests/requests.routes.js';
+import { meRouter } from './modules/me/me.routes.js';
 
 export const app = express();
 
@@ -13,12 +15,15 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/me', requireAuth, meRouter);
 
 app.get('/api/products/:productId/my-role',
   requireAuth,
   requireRole('customer', 'product_manager', 'project_manager', 'developer'),
   (req, res) => res.json({role: req.member.role})
 );
+
+app.use('/api', requestsRouter);
 
 app.use((req, res) => {
   res.status(404).json({error: 'Rota não encontrada', field: null});

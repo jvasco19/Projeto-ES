@@ -11,6 +11,8 @@ tags:
   - name: Sistema
   - name: Autenticação
   - name: Produtos
+  - name: Pedidos
+  - name: Área do cliente
 
 paths:
   /health:
@@ -153,6 +155,166 @@ paths:
                 error: Produto não encontrado
                 field: null
 
+  /products/{productId}/requests:
+    post:
+      tags: [Pedidos]
+      summary: Submete um pedido de funcionalidade (US13)
+      description: >
+        Só para clientes do produto. Cria o pedido com o estado submitted,
+        regista a primeira mudança de estado e a versão 1, numa só transação.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequestInput'
+      responses:
+        '201':
+          description: Pedido criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '400':
+          description: Campo obrigatório em falta ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Escolhe uma categoria
+                field: category
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/requests/public:
+    get:
+      tags: [Pedidos]
+      summary: Lista os pedidos públicos do produto (US13, passo de pesquisa)
+      description: >
+        Usado antes de submeter, para o cliente ver se já existe um pedido parecido.
+        Devolve no máximo 20 pedidos, do mais recente para o mais antigo.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - name: search
+          in: query
+          required: false
+          description: Texto a procurar no título (sem distinguir maiúsculas)
+          schema:
+            type: string
+          example: relatório
+      responses:
+        '200':
+          description: Pedidos públicos do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /me/requests:
+    get:
+      tags: [Área do cliente]
+      summary: Lista os pedidos do utilizador (US15)
+      description: >
+        Pedidos submetidos pelo utilizador com sessão, de todos os produtos,
+        do mais recente para o mais antigo.
+      responses:
+        '200':
+          description: Pedidos do utilizador
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/requests/{id}:
+    get:
+      tags: [Área do cliente]
+      summary: Detalhe de um pedido do utilizador (US15)
+      description: >
+        Devolve o pedido com os anexos, a release (se houver) e o percurso de estados.
+        Só o autor do pedido o pode ver.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id do pedido
+          schema:
+            type: integer
+          example: 6
+      responses:
+        '200':
+          description: Detalhe do pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyRequestDetail'
+        '400':
+          description: O id não é um número inteiro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um número inteiro
+                field: id
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O pedido pertence a outro utilizador (CA3)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Este pedido não pertence à tua conta
+                field: null
+        '404':
+          description: O pedido não existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /me/notifications:
+    get:
+      tags: [Área do cliente]
+      summary: Notificações das mudanças de estado dos pedidos do utilizador
+      description: >
+        Mudanças de estado nos pedidos do utilizador feitas por outra pessoa,
+        da mais recente para a mais antiga (no máximo 50).
+      responses:
+        '200':
+          description: Notificações do utilizador
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -163,6 +325,15 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 1
 
   responses:
     BadRequest:
@@ -182,6 +353,21 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: Sessão em falta
+            field: null
+    NotCustomer:
+      description: O utilizador é membro do produto, mas não é cliente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ProductNotFound:
+      description: O produto não existe ou o utilizador não é membro
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Produto não encontrado
             field: null
 
   schemas:
@@ -270,3 +456,201 @@ components:
           example: stream
         role:
           $ref: '#/components/schemas/MemberRole'
+
+    RequestCategory:
+      type: string
+      enum: [reports, integrations, notifications, usability, performance, security]
+
+    RequestStatus:
+      type: string
+      enum: [submitted, in_review, approved, planned, delivered, rejected]
+
+    CreateRequestInput:
+      type: object
+      required: [title, description, category]
+      properties:
+        title:
+          type: string
+          example: Exportar relatórios para Excel
+        description:
+          type: string
+          example: Preciso de exportar os relatórios mensais para os enviar à direção.
+        category:
+          $ref: '#/components/schemas/RequestCategory'
+        currentWorkflow:
+          type: string
+          nullable: true
+          description: Como o cliente faz isto hoje
+          example: Copio os valores à mão para uma folha de cálculo.
+        impact:
+          type: string
+          nullable: true
+          description: Que diferença faz ter esta funcionalidade
+          example: Poupa cerca de duas horas por mês.
+        importance:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          example: 4
+
+    Request:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id do pedido (BIGINT, devolvido como texto)
+          example: '13'
+        productId:
+          type: string
+          example: '1'
+        title:
+          type: string
+          example: Exportar relatórios para Excel
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/RequestCategory'
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        currentWorkflow:
+          type: string
+          nullable: true
+        impact:
+          type: string
+          nullable: true
+        importance:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '4'
+        title:
+          type: string
+          example: Exportar relatórios de vendas para Excel
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    MyRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '6'
+        title:
+          type: string
+          example: Relatório de comissões por vendedor
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        productId:
+          type: string
+          example: '1'
+        productName:
+          type: string
+          example: Atlas CRM
+        createdAt:
+          type: string
+          format: date-time
+
+    MyRequestDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '6'
+        title:
+          type: string
+          example: Relatório de comissões por vendedor
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        category:
+          $ref: '#/components/schemas/RequestCategory'
+        rejectionReason:
+          type: string
+          nullable: true
+          description: Motivo da rejeição (só quando o estado é rejected)
+          example: null
+        productId:
+          type: string
+          example: '1'
+        productName:
+          type: string
+          example: Atlas CRM
+        createdAt:
+          type: string
+          format: date-time
+        release:
+          type: string
+          nullable: true
+          description: Nome da release da funcionalidade criada a partir do pedido, ou null
+          example: null
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyRequestAttachment'
+        timeline:
+          type: array
+          description: >
+            Percurso completo do pedido. Normal: submitted, in_review, approved,
+            planned, delivered. Rejeitado: submitted, in_review, rejected.
+            Os passos que ainda não aconteceram têm a data a null.
+          items:
+            $ref: '#/components/schemas/TimelineStep'
+
+    MyRequestAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '3'
+        fileName:
+          type: string
+          example: modelo-comissoes.xlsx
+
+    TimelineStep:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        date:
+          type: string
+          format: date-time
+          nullable: true
+          description: Data em que o pedido passou a este estado, ou null se ainda não passou
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id da mudança de estado
+          example: '17'
+        type:
+          type: string
+          enum: [status]
+        requestId:
+          type: string
+          example: '6'
+        requestTitle:
+          type: string
+          example: Relatório de comissões por vendedor
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        createdAt:
+          type: string
+          format: date-time
+        link:
+          type: string
+          example: /me/requests/6

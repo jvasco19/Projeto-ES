@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import {
   ActionIcon, AppShell, Avatar, Badge, Burger, Button, Center, Divider, Group, Indicator, Menu, Modal, NavLink,
@@ -7,8 +7,10 @@ import {
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Spotlight, spotlight } from '@mantine/spotlight'
 import '@mantine/spotlight/styles.css'
-// A barra lateral lê diretamente da store para não piscar entre páginas.
-import { backlog, customerProducts, myRequests, notifications, products, releases, triageRequests, user } from '../data/mockData.js'
+// A barra lateral lê diretamente dos dados de teste para não piscar entre páginas.
+import { backlog, myRequests, products, releases, triageRequests } from '../data/mockData.js'
+import { useApi } from '../data/useApi.js'
+import { getReadIds } from '../lib/readNotifications.js'
 import { can, roleLabels } from '../lib/labels.js'
 import { isLoggedIn, logout } from '../lib/auth.js'
 import { notifyError, useAction } from '../lib/feedback.jsx'
@@ -69,7 +71,7 @@ function CreateProductModal({ opened, onClose, onCreate }) {
   return (
     <Modal opened={opened} onClose={onClose} title="Criar produto">
       <Stack>
-        <Text size="sm" c="dimmed">Ficas como Project Manager.A seguir convidas a equipa e partilhas o link com os clientes.</Text>
+        <Text size="sm" c="dimmed">Ficas como Project Manager. A seguir convidas a equipa e partilhas o link com os clientes.</Text>
         <TextInput label="Nome do produto" withAsterisk placeholder="Ex.: Atlas CRM" value={form.name} data-autofocus
           onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
         <Textarea label="Descrição" autosize minRows={2} placeholder="Para quem é e o que resolve" value={form.description}
@@ -128,11 +130,11 @@ function ContextSwitcher({ product, allProducts, onCreateProduct }) {
   )
 }
 
-function CreateMenu({ product, base }) {
+function CreateMenu({ product, base, customerProducts }) {
   const navigate = useNavigate()
   const options = product
     ? createOptions.filter((o) => can(product.role, o.needs))
-    : customerProducts.map((p) => ({ label: `Pedido para ${p.name}`, icon: 'add_comment', to: `/me/novo/${p.id}`, absolute: true }))
+    : customerProducts.map((p) => ({ label: `Pedido para ${p.name}`, icon: 'add_comment', to: `/me/new/${p.id}`, absolute: true }))
   if (!options.length) return null
   return (
     <Menu position="bottom-start" width={240} offset={6}>
@@ -162,7 +164,7 @@ function useSpotlightActions(product, navigate) {
         id: `page-${n.label}`, label: n.label, leftSection: <Icon name={n.icon} size={20} />, onClick: go(base + n.to),
       })).concat([
         { id: 'me', label: 'Os meus pedidos', leftSection: <Icon name="assignment" size={20} />, onClick: go('/me') },
-        { id: 'account', label: 'Conta e preferências', leftSection: <Icon name="manage_accounts" size={20} />, onClick: go('/conta') },
+        { id: 'account', label: 'Conta e preferências', leftSection: <Icon name="manage_accounts" size={20} />, onClick: go('/account') },
       ]),
     },
     {
@@ -172,7 +174,7 @@ function useSpotlightActions(product, navigate) {
     {
       group: 'Pedidos',
       actions: [
-        ...myRequests.map((r) => ({ id: r.id, label: r.title, description: `${r.id} · o meu pedido para ${r.productName}`, leftSection: <Icon name="assignment" size={20} />, onClick: go(`/me/pedidos/${r.id}`) })),
+        ...myRequests.map((r) => ({ id: r.id, label: r.title, description: `${r.id} · o meu pedido para ${r.productName}`, leftSection: <Icon name="assignment" size={20} />, onClick: go(`/me/requests/${r.id}`) })),
         ...(can(p.role, 'triage') ? triageRequests : []).map((r) => ({ id: r.id, label: r.title, description: `${r.id} · ${r.company}`, leftSection: <Icon name="inbox" size={20} />, onClick: go(`${base}/pedidos?pedido=${r.id}&filtro=todos`) })),
       ],
     },
@@ -192,17 +194,34 @@ export function AppLayout() {
   const isMobile = useMediaQuery('(max-width: 48em)')
   // Produtos criados nesta sessão (ainda sem backend)
   const [created, setCreated] = useState([])
+  // Utilizador e produtos reais, vindos da API
+  const me = useApi('/auth/me')
+  const myProducts = me.data?.products ?? []
+  const customerProducts = myProducts.filter((p) => p.role === 'customer')
+  const teamProducts = myProducts.filter((p) => p.role !== 'customer')
+  // Aceita a resposta como { ...utilizador, products } ou { user, products }
+  const user = me.data?.user ?? me.data ?? {}
+  const initials = (user.name ?? '').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  // Notificacoes, o contador volta a ser calculado quando alguma é marcada como lida
+  const notifications = useApi('/me/notifications')
+  const [, setReadVersion] = useState(0)
+  useEffect(() => {
+    const refresh = () => setReadVersion((v) => v + 1)
+    window.addEventListener('ws-notifications-read', refresh)
+    return () => window.removeEventListener('ws-notifications-read', refresh)
+  }, [])
 
   const match = matchPath('/p/:productId/*', location.pathname)
-  const allProducts = [...products, ...created]
-  const product = allProducts.find((p) => p.id === match?.params.productId)
+  const allProducts = [...teamProducts, ...created]
+  const product = allProducts.find((p) => String(p.id) === match?.params.productId)
   const spotlightActions = useSpotlightActions(product, navigate)
 
   if (!isLoggedIn()) {
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
   }
 
-  const unread = notifications.filter((n) => !n.read).length
+  const readIds = getReadIds()
+  const unread = (notifications.data ?? []).filter((n) => !readIds.has(String(n.id))).length
   const base = product ? `/p/${product.id}` : ''
   const section = match?.params['*']?.split('/')[0] ?? ''
   const emptySection = product?.isNew && emptySections[section]
@@ -230,7 +249,7 @@ export function AppLayout() {
         <AppShell.Section>
           <ContextSwitcher product={product} allProducts={allProducts} onCreateProduct={createProduct} />
           <Group gap="xs" mt="sm" wrap="nowrap">
-            <div style={{ flex: 1 }}><CreateMenu product={product} base={base} /></div>
+            <div style={{ flex: 1 }}><CreateMenu product={product} base={base} customerProducts={customerProducts} /></div>
             <Tooltip label="Pesquisar (Ctrl K)">
               <ActionIcon variant="default" size={36} aria-label="Pesquisar" onClick={spotlight.open}><Icon name="search" size={20} /></ActionIcon>
             </Tooltip>
@@ -254,11 +273,11 @@ export function AppLayout() {
           ) : (
             <>
               <NavLink component={Link} to="/me" label="Os meus pedidos" leftSection={<Icon name="assignment" size={20} />}
-                active={location.pathname === '/me' || location.pathname.startsWith('/me/pedidos')} style={{ borderRadius: 8 }} />
+                active={location.pathname === '/me' || location.pathname.startsWith('/me/requests')} style={{ borderRadius: 8 }} />
               <Text size="xs" fw={500} c="dimmed" px="sm" mt="lg" mb={4}>Produtos que acompanho</Text>
               {customerProducts.map((p) => (
                 <NavLink key={p.id} label={p.name} leftSection={<Icon name="apps" size={20} />} style={{ borderRadius: 8 }}
-                  defaultOpened={location.pathname.includes(`/${p.id}`)} childrenOffset={28}>
+                  defaultOpened={location.pathname.endsWith(`/${p.id}`)} childrenOffset={28}>
                   <NavLink component={Link} to={`/me/products/${p.id}`} label="Pedidos públicos" style={{ borderRadius: 8 }}
                     active={location.pathname === `/me/products/${p.id}`} />
                   <NavLink component={Link} to={`/me/roadmap/${p.id}`} label="Roadmap" style={{ borderRadius: 8 }}
@@ -281,7 +300,7 @@ export function AppLayout() {
               </Indicator>
             }
             rightSection={unread ? <Badge size="sm" color="red" variant="light" circle>{unread}</Badge> : null}
-            active={location.pathname === '/notificacoes'}
+            active={location.pathname === '/notifications'}
             style={{ borderRadius: 8 }}
           />
           <Group justify="space-between" mt="xs" wrap="nowrap">
@@ -289,7 +308,7 @@ export function AppLayout() {
               <Menu.Target>
                 <UnstyledButton p={6} style={{ borderRadius: 8, flex: 1, minWidth: 0 }} aria-label="Menu da conta">
                   <Group gap={10} wrap="nowrap">
-                    <Avatar size={30} radius="xl" color="teal">{user.initials}</Avatar>
+                    <Avatar size={30} radius="xl" color="teal">{initials}</Avatar>
                     <div style={{ minWidth: 0 }}>
                       <Text size="sm" fw={500} truncate>{user.name}</Text>
                       <Text size="xs" c="dimmed" truncate>{user.email}</Text>
