@@ -71,3 +71,25 @@ export async function insertAttachment({ requestId, fileName, mimeType, sizeByte
     );
     return rows[0];
 }
+
+// Anexo com o pedido a que pertence
+export async function findAttachmentById(attachmentId) {
+    const { rows } = await query(
+        `SELECT a.file_name AS "fileName", a.mime_type AS "mimeType", a.storage_path AS "storagePath",
+                r.author_id AS "authorId", r.product_id AS "productId"
+           FROM attachments a
+           JOIN feature_requests r ON r.id = a.request_id
+          WHERE a.id = $1`,
+        [attachmentId]
+    );
+    return rows[0] ?? null;
+}
+
+// Papel do utilizador no produto ou null se não for membro
+export async function findMemberRole(productId, userId) {
+    const { rows } = await query(
+        'SELECT role FROM product_members WHERE product_id = $1 AND user_id = $2',
+        [productId, userId]
+    );
+    return rows[0]?.role ?? null;
+}

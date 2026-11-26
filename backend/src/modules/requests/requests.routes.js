@@ -25,3 +25,8 @@ requestsRouter.post('/requests/:requestId/attachments',
     uploadAttachment,
     controller.addAttachment
 );
+
+requestsRouter.get('/attachments/:attachmentId',
+    requireAuth,
+    controller.getAttachment
+)

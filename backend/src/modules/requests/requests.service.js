@@ -1,6 +1,8 @@
 import { HttpError } from '../../utils/HttpError.js';
 import * as repo from './requests.repository.js';
 import fs from 'node:fs/promises'
+import path from 'node:path';
+import { UPLOAD_DIR } from '../../middleware/uploadAttachment.js';
 
 const CATEGORIES = ['reports', 'integrations', 'notifications', 'usability', 'performance', 'security'];
 
@@ -67,4 +69,31 @@ export async function addAttachment(userId, requestId, file) {
         throw err;
     }
     
+}
+
+// Ver um anexo o autor do pedido ou a equipa do produto
+export async function getAttachment(userId, rawAttachmentId) {
+    const attachmentId = Number(rawAttachmentId);
+    if (!Number.isSafeInteger(attachmentId) || attachmentId <= 0) {
+        throw new HttpError(400, 'O id do anexo tem de ser um número inteiro', 'attachmentId');
+    }
+
+    const attachment = await repo.findAttachmentById(attachmentId);
+    if (!attachment) throw new HttpError(404, 'Anexo não encontrado');
+
+    const isAuthor = Number(attachment.authorId) === userId;
+    if (!isAuthor) {
+        const role = await repo.findMemberRole(attachment.productId, userId);
+        if (!role || role === 'customer') throw new HttpError(403, 'Não tens acesso a este anexo');
+    }
+
+    // basename impede caminhos como ../ o ficheiro tem de estar dentro de uploads/
+    const filePath = path.join(UPLOAD_DIR, path.basename(attachment.storagePath ?? ''));
+    try {
+        await fs.access(filePath);
+    } catch {
+        throw new HttpError(404, 'O ficheiro deste anexo já não está disponível');
+    }
+
+    return { filePath, fileName: attachment.fileName, mimeType: attachment.mimeType };
 }
