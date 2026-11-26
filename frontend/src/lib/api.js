@@ -9,8 +9,9 @@ export class ApiError extends Error {
 }
 
 export async function api(path, {method = 'GET', body } = {}) {
+    const isForm = body instanceof FormData;
     const headers = {};
-    if(body !== undefined) headers['Content-Type'] = 'application/json';
+    if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -20,7 +21,7 @@ export async function api(path, {method = 'GET', body } = {}) {
         res = await fetch(`/api${path}`, {
             method,
             headers,
-            body: body !== undefined ? JSON.stringify(body) : undefined,
+            body: body === undefined || isForm ? body : JSON.stringify(body),
         });
     } catch {
         throw new ApiError(0, 'Sem ligação ao servidor');

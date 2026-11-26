@@ -110,16 +110,33 @@ function FormStep({ productId, initialTitle, onBack, onSubmitted }) {
     if (Object.keys(err).length) return notifyError('Preenche os campos assinalados.', 'Faltam campos obrigatórios')
 
     setLoading(true)
+    let created
     try {
-      const created = await api(`/products/${productId}/requests`, { method: 'POST', body: form })
-      // Os anexos (files) são enviados aqui quando existir o endpoint POST /requests/:id/attachments.
-      onSubmitted(created)
+      created = await api(`/products/${productId}/requests`, { method: 'POST', body: form })
     } catch (e) {
       // Erro de um campo (400): aparece por baixo desse campo. Outros erros: notificação.
       if (e.field) setErrors({ [e.field]: e.message })
       else notifyError(e.message)
       setLoading(false)
+      return
     }
+
+    // O backend aceita um ficheiro por envio. Se um anexo falhar, o pedido mantém-se.
+    const failed = []
+    for (const file of files) {
+      const data = new FormData()
+      data.append('file', file)
+      try {
+        await api(`/requests/${created.id}/attachments`, { method: 'POST', body: data })
+      } catch (e) {
+        failed.push(`${file.name} (${e.message})`)
+      }
+    }
+    if (failed.length) {
+      notifyError(`O pedido foi enviado, mas não foi possível anexar: ${failed.join(', ')}.`, 'Anexo não enviado')
+    }
+
+    onSubmitted(created)
   }
 
   return (

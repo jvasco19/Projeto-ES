@@ -71,7 +71,7 @@ function CreateProductModal({ opened, onClose, onCreate }) {
   return (
     <Modal opened={opened} onClose={onClose} title="Criar produto">
       <Stack>
-        <Text size="sm" c="dimmed">Ficas como Project Manager (Scrum Master). A seguir convidas a equipa e partilhas o link com os clientes.</Text>
+        <Text size="sm" c="dimmed">Ficas como Project Manager. A seguir convidas a equipa e partilhas o link com os clientes.</Text>
         <TextInput label="Nome do produto" withAsterisk placeholder="Ex.: Atlas CRM" value={form.name} data-autofocus
           onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
         <Textarea label="Descrição" autosize minRows={2} placeholder="Para quem é e o que resolve" value={form.description}
