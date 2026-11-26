@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Alert, Anchor, Breadcrumbs, Button, Card, Grid, Group, Modal, Stack, Text, TextInput, Textarea, Timeline, Title } from '@mantine/core'
+import { Alert, Anchor, Breadcrumbs, Button, Card, Grid, Group, Modal, Stack, Text, TextInput, Textarea, Timeline, Title, UnstyledButton } from '@mantine/core'
 import { Icon } from '../../components/Icon.jsx'
 import { Empty, PageLoader, StatusBadge } from '../../components/ui.jsx'
 import { useApi } from '../../data/useApi.js'
 import { notifyError, useAction } from '../../lib/feedback.jsx'
 import { requestStatus } from '../../lib/labels.js'
 import { formatDate } from '../../lib/format.js'
+import { openAttachment } from '../../lib/api.js'
 
 function EditModal({ request, onClose, onSave }) {
   const [form, setForm] = useState({ title: request.title, description: request.description })
@@ -107,10 +108,16 @@ export default function RequestDetail() {
               {request.attachments.length > 0 && (
                 <Group gap="xs" mt="md">
                   {request.attachments.map((a) => (
-                    <Group key={a.id} gap={6} px="sm" py={4} style={{ border: '1px solid var(--ws-border)', borderRadius: 8 }}>
-                      <Icon name="attach_file" size={16} />
-                      <Text size="sm">{a.fileName}</Text>
-                    </Group>
+                    <UnstyledButton
+                      key={a.id}
+                      onClick={() => openAttachment(a.id, a.fileName).catch((e) => notifyError(e.message))}
+                      title={`Abrir ${a.fileName}`}
+                    >
+                      <Group gap={6} px="sm" py={4} style={{ border: '1px solid var(--ws-border)', borderRadius: 8 }}>
+                        <Icon name="attach_file" size={16} />
+                        <Text size="sm">{a.fileName}</Text>
+                      </Group>
+                    </UnstyledButton>
                   ))}
                 </Group>
               )}
