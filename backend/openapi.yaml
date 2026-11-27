@@ -15,6 +15,7 @@ tags:
   - name: Área do cliente
   - name: Equipas
   - name: Membros
+  - name: Funcionalidades
 
 paths:
   /health:
@@ -590,6 +591,110 @@ paths:
         '409':
           $ref: '#/components/responses/LastProductManager'
 
+  /products/{productId}/board:
+    get:
+      tags: [Funcionalidades]
+      summary: Quadro das funcionalidades do produto (US11)
+      description: >
+        Todas as funcionalidades do produto, ordenadas pelo fluxo dos estados.
+        canMove indica se quem pede pode mudar o estado (developer da equipa da funcionalidade).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Quadro do produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/features/{featureId}:
+    get:
+      tags: [Funcionalidades]
+      summary: Detalhe da funcionalidade com o histórico de estados (US11)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      responses:
+        '200':
+          description: Detalhe da funcionalidade
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureDetail'
+        '400':
+          $ref: '#/components/responses/InvalidFeatureId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+
+  /products/{productId}/features/{featureId}/status:
+    patch:
+      tags: [Funcionalidades]
+      summary: Muda o estado da funcionalidade um passo para a frente ou para trás (US11)
+      description: >
+        Só para developers da equipa da funcionalidade (CA3). Não se pode saltar estados
+        no fluxo todo, in_progress, in_review, done (CA2). A mudança fica registada com a
+        data e o autor (CA1). Devolve a funcionalidade atualizada, com o histórico.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeFeatureStatusInput'
+      responses:
+        '200':
+          description: Estado alterado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureDetail'
+        '400':
+          description: Estado inválido, igual ao atual, ou salto de estados (CA2)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: De "Por fazer" só podes passar para "Em curso"
+                field: status
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            O utilizador não é developer, ou a funcionalidade é de outra equipa
+            ou não tem equipa (CA3)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Esta funcionalidade está atribuída a outra equipa
+                field: null
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+        '409':
+          description: O estado foi alterado por outra pessoa entretanto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O estado foi alterado por outra pessoa. Atualiza a página.
+                field: null
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -625,6 +730,13 @@ components:
       schema:
         type: integer
       example: 8
+    FeatureId:
+      name: featureId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 3
   responses:
     BadRequest:
       description: Dados inválidos ou em falta
@@ -704,6 +816,24 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: O produto tem de ter pelo menos um Product Manager
+            field: null
+    InvalidFeatureId:
+      description: Id da funcionalidade inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Id inválido
+            field: featureId
+    FeatureNotFound:
+      description: A funcionalidade não existe neste produto
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Funcionalidade não encontrada
             field: null
   schemas:
     Error:
@@ -1107,3 +1237,137 @@ components:
           nullable: true
           description: null para tirar o membro da equipa
           example: 1
+
+    FeatureStatus:
+      type: string
+      description: Fluxo dos estados, por esta ordem
+      enum: [todo, in_progress, in_review, done]
+
+    BoardFeature:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '3'
+        title:
+          type: string
+          example: Exportação de relatórios para Excel
+        status:
+          $ref: '#/components/schemas/FeatureStatus'
+        storyPoints:
+          type: integer
+          nullable: true
+          example: 8
+        teamId:
+          type: string
+          nullable: true
+          example: '1'
+        teamName:
+          type: string
+          nullable: true
+          example: Core
+        assigneeId:
+          type: string
+          nullable: true
+          example: '2'
+        assigneeName:
+          type: string
+          nullable: true
+          example: Rui Matos
+        canMove:
+          type: boolean
+          description: true se quem pede é developer da equipa da funcionalidade
+          example: true
+
+    Board:
+      type: object
+      properties:
+        myTeamId:
+          type: string
+          nullable: true
+          description: Equipa de quem pede neste produto
+          example: '1'
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardFeature'
+
+    FeatureStatusChange:
+      type: object
+      properties:
+        fromStatus:
+          allOf:
+            - $ref: '#/components/schemas/FeatureStatus'
+          nullable: true
+          description: null na primeira entrada (criação)
+        status:
+          $ref: '#/components/schemas/FeatureStatus'
+        changedAt:
+          type: string
+          format: date-time
+        changedBy:
+          type: string
+          example: Rui Matos
+
+    FeatureDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '3'
+        title:
+          type: string
+          example: Exportação de relatórios para Excel
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/FeatureStatus'
+        storyPoints:
+          type: integer
+          nullable: true
+          example: 8
+        teamId:
+          type: string
+          nullable: true
+          example: '1'
+        teamName:
+          type: string
+          nullable: true
+          example: Core
+        assigneeId:
+          type: string
+          nullable: true
+          example: '2'
+        assigneeName:
+          type: string
+          nullable: true
+          example: Rui Matos
+        nextStatus:
+          allOf:
+            - $ref: '#/components/schemas/FeatureStatus'
+          nullable: true
+          description: Passo seguinte, ou null se já estiver concluída
+        allowedStatuses:
+          type: array
+          description: Estados para onde pode passar (um passo para trás ou para a frente)
+          items:
+            $ref: '#/components/schemas/FeatureStatus'
+          example: [todo, in_review]
+        canChangeStatus:
+          type: boolean
+          example: true
+        statusLog:
+          type: array
+          description: Mudanças de estado, da mais recente para a mais antiga
+          items:
+            $ref: '#/components/schemas/FeatureStatusChange'
+
+    ChangeFeatureStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/FeatureStatus'
+      example:
+        status: in_review
