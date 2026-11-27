@@ -9,6 +9,8 @@ import RequestDetail from './pages/personal/RequestDetail.jsx'
 import SubmitRequest from './pages/personal/SubmitRequest.jsx'
 import Notifications from './pages/personal/Notifications.jsx'
 import Teams from './pages/product/Teams.jsx'
+import Sprints from './pages/product/Sprints.jsx'
+import FeatureDetail from './pages/product/FeatureDetail.jsx'
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
 
         {/* Area do produto */}
         <Route path="/p/:productId/teams" element={<Teams />} />
+        <Route path="/p/:productId/sprints" element={<Sprints />} />
+        <Route path="/p/:productId/funcionalidades/:featureId" element={<FeatureDetail />} />
 
         {/* Paginas ainda por integrar: mostram o aviso dentro da aplicacao */}
         <Route path="/me/*" element={<NotFound inApp />} />

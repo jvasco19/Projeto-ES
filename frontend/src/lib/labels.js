@@ -28,13 +28,13 @@ export const requestStatus = {
 }
 
 export const featureStatus = {
-  por_fazer: { label: 'Por fazer', color: 'gray' },
-  em_curso: { label: 'Em curso', color: 'stream' },
-  em_revisao: { label: 'Em revisão', color: 'violet' },
-  concluido: { label: 'Concluído', color: 'green' },
+  todo: { label: 'Por fazer', color: 'gray' },
+  in_progress: { label: 'Em curso', color: 'stream' },
+  in_review: { label: 'Em revisão', color: 'violet' },
+  done: { label: 'Concluído', color: 'green' },
 }
 
-export const featureFlow = ['por_fazer', 'em_curso', 'em_revisao', 'concluido']
+export const featureFlow = ['todo', 'in_progress', 'in_review', 'done']
 
 export const sprintState = {
   ativo: { label: 'Ativo', color: 'stream' },
