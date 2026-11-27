@@ -9,6 +9,7 @@ import RequestDetail from './pages/personal/RequestDetail.jsx'
 import SubmitRequest from './pages/personal/SubmitRequest.jsx'
 import Notifications from './pages/personal/Notifications.jsx'
 import Teams from './pages/product/Teams.jsx'
+import Requests from './pages/product/Requests.jsx'
 import Sprints from './pages/product/Sprints.jsx'
 import FeatureDetail from './pages/product/FeatureDetail.jsx'
 
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/notifications" element={<Notifications />} />
 
         {/* Area do produto */}
+        <Route path="/p/:productId/requests" element={<Requests />} />
         <Route path="/p/:productId/teams" element={<Teams />} />
         <Route path="/p/:productId/sprints" element={<Sprints />} />
         <Route path="/p/:productId/funcionalidades/:featureId" element={<FeatureDetail />} />

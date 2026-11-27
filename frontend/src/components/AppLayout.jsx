@@ -20,7 +20,7 @@ import { ErrorBoundary } from './ErrorBoundary.jsx'
 
 const productNav = [
   { to: '', label: 'Visão geral', icon: 'space_dashboard' },
-  { to: '/pedidos', label: 'Pedidos', icon: 'inbox', count: 4, needs: 'triage' },
+  { to: '/requests', label: 'Pedidos', icon: 'inbox', needs: 'triage' },
   { to: '/backlog', label: 'Backlog', icon: 'format_list_numbered' },
   { to: '/requisitos', label: 'Requisitos', icon: 'description' },
   { to: '/sprints', label: 'Sprints', icon: 'view_kanban' },
@@ -175,7 +175,7 @@ function useSpotlightActions(product, navigate) {
       group: 'Pedidos',
       actions: [
         ...myRequests.map((r) => ({ id: r.id, label: r.title, description: `${r.id} · o meu pedido para ${r.productName}`, leftSection: <Icon name="assignment" size={20} />, onClick: go(`/me/requests/${r.id}`) })),
-        ...(can(p.role, 'triage') ? triageRequests : []).map((r) => ({ id: r.id, label: r.title, description: `${r.id} · ${r.company}`, leftSection: <Icon name="inbox" size={20} />, onClick: go(`${base}/pedidos?pedido=${r.id}&filtro=todos`) })),
+        ...(can(p.role, 'triage') ? triageRequests : []).map((r) => ({ id: r.id, label: r.title, description: `${r.id} · ${r.company}`, leftSection: <Icon name="inbox" size={20} />, onClick: go(`${base}/requests?filtro=todos`) })),
       ],
     },
     {
@@ -368,4 +368,4 @@ export function AppLayout() {
       />
     </AppShell>
   )
-} 
+}
