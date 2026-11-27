@@ -30,12 +30,13 @@ export default function App() {
         {/* Area do produto */}
         <Route path="/p/:productId/teams" element={<Teams />} />
 
-        <Route path="/me/" element={<NotFound inApp />} />
+        {/* Paginas ainda por integrar: mostram o aviso dentro da aplicacao */}
+        <Route path="/me/*" element={<NotFound inApp />} />
         <Route path="/account" element={<NotFound inApp />} />
-        <Route path="/p/:productId/" element={<NotFound inApp />} />
+        <Route path="/p/:productId/*" element={<NotFound inApp />} />
       </Route>
 
-      <Route path="" element={<NotFound />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
