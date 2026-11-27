@@ -8,6 +8,7 @@ import { triageRouter } from './modules/triage/triage.routes.js';
 import { meRouter } from './modules/me/me.routes.js';
 import { teamsRouter } from './modules/teams/teams.routes.js';
 import { membersRouter } from './modules/members/members.routes.js';
+import { storiesRouter } from './modules/stories/stories.routes.js';
 import { featuresRouter } from './modules/features/features.routes.js';
 
 export const app = express();
@@ -31,6 +32,7 @@ app.use('/api', requestsRouter);
 app.use('/api', teamsRouter);
 app.use('/api', triageRouter);
 app.use('/api', membersRouter);
+app.use('/api', storiesRouter);
 app.use('/api', featuresRouter);
 
 app.use((req, res) => {
