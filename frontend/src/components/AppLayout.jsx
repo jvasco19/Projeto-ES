@@ -26,7 +26,7 @@ const productNav = [
   { to: '/sprints', label: 'Sprints', icon: 'view_kanban' },
   { to: '/roadmap', label: 'Roadmap', icon: 'timeline' },
   { to: '/metricas', label: 'Métricas', icon: 'monitoring' },
-  { to: '/equipas', label: 'Equipas', icon: 'groups' },
+  { to: '/teams', label: 'Equipas', icon: 'groups' },
   { to: '/definicoes', label: 'Definições', icon: 'settings' },
 ]
 
@@ -36,8 +36,8 @@ const createOptions = [
   { label: 'Sprint', icon: 'view_kanban', to: '/sprints?criar=sprint', needs: 'sprints' },
   { label: 'Release', icon: 'rocket_launch', to: '/roadmap?criar=release', needs: 'releases' },
   { label: 'Milestone', icon: 'flag', to: '/roadmap?criar=milestone', needs: 'milestones' },
-  { label: 'Equipa', icon: 'group_add', to: '/equipas?criar=equipa', needs: 'teams' },
-  { label: 'Convite', icon: 'person_add', to: '/equipas?criar=convite', needs: 'teams' },
+  { label: 'Equipa', icon: 'group_add', to: '/teams?criar=equipa', needs: 'teams' },
+  { label: 'Convite', icon: 'person_add', to: '/teams?criar=convite', needs: 'teams' },
 ]
 
 // Páginas que um produto novo ainda não tem
@@ -368,4 +368,4 @@ export function AppLayout() {
       />
     </AppShell>
   )
-}
+} 
