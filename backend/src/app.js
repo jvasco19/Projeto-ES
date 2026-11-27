@@ -7,6 +7,7 @@ import { requestsRouter } from './modules/requests/requests.routes.js';
 import { meRouter } from './modules/me/me.routes.js';
 import { teamsRouter } from './modules/teams/teams.routes.js';
 import { membersRouter } from './modules/members/members.routes.js';
+import { featuresRouter } from './modules/features/features.routes.js';
 
 export const app = express();
 
@@ -28,6 +29,7 @@ app.get('/api/products/:productId/my-role',
 app.use('/api', requestsRouter);
 app.use('/api', teamsRouter);
 app.use('/api', membersRouter);
+app.use('/api', featuresRouter);
 
 app.use((req, res) => {
   res.status(404).json({error: 'Rota não encontrada', field: null});
