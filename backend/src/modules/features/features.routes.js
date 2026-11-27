@@ -24,3 +24,27 @@ featuresRouter.patch('/products/:productId/features/:featureId/status',
     requireRole('developer'),
     controller.changeStatus
 );
+
+featuresRouter.get('/products/:productId/backlog',
+    requireAuth,
+    requireRole(...TEAM_ROLES),
+    controller.backlog
+);
+
+featuresRouter.post('/products/:productId/features',
+    requireAuth,
+    requireRole('product_manager'),
+    controller.create
+);
+
+featuresRouter.patch('/products/:productId/features/:featureId/priority',
+    requireAuth,
+    requireRole('product_manager'),
+    controller.changePriority
+);
+
+featuresRouter.patch('/products/:productId/features/:featureId/position',
+    requireAuth,
+    requireRole('product_manager'),
+    controller.changePosition
+);
