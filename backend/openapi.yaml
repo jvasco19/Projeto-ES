@@ -13,6 +13,8 @@ tags:
   - name: Produtos
   - name: Pedidos
   - name: Área do cliente
+  - name: Equipas
+  - name: Membros
 
 paths:
   /health:
@@ -315,6 +317,279 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /products/{productId}/teams:
+    get:
+      tags: [Equipas]
+      summary: Lista as equipas do produto, com a carga e os membros (US18)
+      description: >
+        A carga (load) é a soma dos story points das funcionalidades da equipa
+        que ainda não estão concluídas. Só para a equipa do produto (não clientes).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Equipas do produto, por ordem alfabética
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+    post:
+      tags: [Equipas]
+      summary: Cria uma equipa no produto (US18)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamInput'
+            example:
+              name: Mobile
+              capacity: 20
+      responses:
+        '201':
+          description: Equipa criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamSummary'
+        '400':
+          description: Nome em falta ou capacidade inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Indica o nome da equipa
+                field: name
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/TeamNameTaken'
+
+  /products/{productId}/teams/{teamId}:
+    patch:
+      tags: [Equipas]
+      summary: Edita o nome e/ou a capacidade de uma equipa (US18)
+      description: Os campos que não forem enviados mantêm o valor atual.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamInput'
+            example:
+              capacity: 25
+      responses:
+        '200':
+          description: Equipa atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamSummary'
+        '400':
+          description: Id, nome ou capacidade inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A capacidade tem de ser um número inteiro igual ou maior que 0
+                field: capacity
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/TeamNotFound'
+        '409':
+          $ref: '#/components/responses/TeamNameTaken'
+    delete:
+      tags: [Equipas]
+      summary: Apaga uma equipa (US18)
+      description: Os membros e as funcionalidades da equipa ficam sem equipa.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '204':
+          description: Equipa apagada
+        '400':
+          description: Id da equipa inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Id inválido
+                field: teamId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/TeamNotFound'
+
+  /products/{productId}/members:
+    get:
+      tags: [Membros]
+      summary: Lista os membros da equipa do produto (US18)
+      description: >
+        Devolve os membros com papel product_manager, project_manager ou developer.
+        Os clientes não aparecem: entram no produto pelo link, não pela equipa.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Membros da equipa, por ordem alfabética
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+    post:
+      tags: [Membros]
+      summary: Convida (adiciona) ao produto uma pessoa que já tem conta (US18)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberInput'
+      responses:
+        '201':
+          description: Membro adicionado ao produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '400':
+          description: Email em falta, papel inválido ou equipa que não é deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Escolhe um papel válido
+                field: role
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          description: Não existe nenhuma conta com esse email (ou o produto não existe)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Não existe nenhuma conta com esse email
+                field: email
+        '409':
+          description: A pessoa já é membro do produto (com qualquer papel)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Esta pessoa já é membro do produto
+                field: email
+
+  /products/{productId}/members/{userId}:
+    patch:
+      tags: [Membros]
+      summary: Altera o papel e/ou a equipa de um membro (US18)
+      description: >
+        Os campos que não forem enviados mantêm o valor atual.
+        teamId a null tira o membro da equipa.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberInput'
+            example:
+              role: project_manager
+              teamId: 1
+      responses:
+        '200':
+          description: Membro atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '400':
+          description: Id, papel ou equipa inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Equipa inválida
+                field: teamId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/MemberNotFound'
+        '409':
+          $ref: '#/components/responses/LastProductManager'
+    delete:
+      tags: [Membros]
+      summary: Remove um membro do produto (US18)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Membro removido
+        '400':
+          description: Id do membro inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Id inválido
+                field: userId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/MemberNotFound'
+        '409':
+          $ref: '#/components/responses/LastProductManager'
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -335,6 +610,21 @@ components:
         type: integer
       example: 1
 
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 1
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Id do utilizador (membro)
+      schema:
+        type: integer
+      example: 8
   responses:
     BadRequest:
       description: Dados inválidos ou em falta
@@ -370,6 +660,51 @@ components:
             error: Produto não encontrado
             field: null
 
+    NotTeamMember:
+      description: O utilizador é cliente do produto, não faz parte da equipa
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Nao tens permissao para esta acao
+            field: null
+    TeamNotFound:
+      description: A equipa não existe neste produto
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Equipa não encontrada
+            field: null
+    TeamNameTaken:
+      description: Já existe uma equipa com esse nome no produto
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Já existe uma equipa com esse nome
+            field: name
+    MemberNotFound:
+      description: O membro não existe neste produto (ou é cliente)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Membro não encontrado
+            field: null
+    LastProductManager:
+      description: A alteração deixava o produto sem Product Manager
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: O produto tem de ter pelo menos um Product Manager
+            field: null
   schemas:
     Error:
       type: object
@@ -654,3 +989,121 @@ components:
         link:
           type: string
           example: /me/requests/6
+
+    TeamInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Mobile
+        capacity:
+          type: integer
+          minimum: 0
+          description: Story points que a equipa consegue fazer (0 se não for indicada ao criar)
+          example: 20
+
+    TeamSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '4'
+        name:
+          type: string
+          example: Mobile
+        capacity:
+          type: integer
+          example: 20
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id do utilizador
+          example: '2'
+        name:
+          type: string
+          example: Rui Matos
+        role:
+          $ref: '#/components/schemas/MemberRole'
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: Core
+        capacity:
+          type: integer
+          example: 40
+        load:
+          type: integer
+          description: Soma dos story points das funcionalidades da equipa por concluir
+          example: 34
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+
+    TeamRole:
+      type: string
+      description: Papéis da equipa do produto (customer não)
+      enum: [product_manager, project_manager, developer]
+
+    Member:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id do utilizador
+          example: '8'
+        name:
+          type: string
+          example: Joana Pires
+        email:
+          type: string
+          example: joana.pires@exemplo.pt
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        teamId:
+          type: string
+          nullable: true
+          example: '1'
+        teamName:
+          type: string
+          nullable: true
+          example: Core
+        joinedAt:
+          type: string
+          format: date-time
+
+    InviteMemberInput:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: sara.gomes@exemplo.pt
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        teamId:
+          type: integer
+          nullable: true
+          description: Equipa do produto (opcional)
+          example: 3
+
+    UpdateMemberInput:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        teamId:
+          type: integer
+          nullable: true
+          description: null para tirar o membro da equipa
+          example: 1

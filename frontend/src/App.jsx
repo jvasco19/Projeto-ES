@@ -8,6 +8,7 @@ import MyRequests from './pages/personal/MyRequests.jsx'
 import RequestDetail from './pages/personal/RequestDetail.jsx'
 import SubmitRequest from './pages/personal/SubmitRequest.jsx'
 import Notifications from './pages/personal/Notifications.jsx'
+import Teams from './pages/product/Teams.jsx'
 
 export default function App() {
   return (
@@ -26,12 +27,15 @@ export default function App() {
         <Route path="/me/new/:productId" element={<SubmitRequest />} />
         <Route path="/notifications" element={<Notifications />} />
 
-        <Route path="/me/*" element={<NotFound inApp />} />
+        {/* Area do produto */}
+        <Route path="/p/:productId/teams" element={<Teams />} />
+
+        <Route path="/me/" element={<NotFound inApp />} />
         <Route path="/account" element={<NotFound inApp />} />
-        <Route path="/p/:productId/*" element={<NotFound inApp />} />
+        <Route path="/p/:productId/" element={<NotFound inApp />} />
       </Route>
 
-      <Route path="*" element={<NotFound />} />
+      <Route path="" element={<NotFound />} />
     </Routes>
   )
 }
