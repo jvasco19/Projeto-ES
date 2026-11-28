@@ -101,9 +101,9 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
       </Row>
       <Divider my={6} />
       <Row label="Pedido de origem">
-        {feature.requestId || feature.request?.id ? (
-          <Anchor component={Link} to={`${base}/pedidos?pedido=${feature.requestId ?? feature.request.id}`} size="sm">
-            {feature.requestId ?? feature.request.id}
+        {feature.request ? (
+          <Anchor component={Link} to={`${base}/requests?pedido=${feature.request.requestId}&filtro=todos`} size="sm">
+            {feature.request.id}
           </Anchor>
         ) : <Text size="sm" c="dimmed">Criada pela equipa</Text>}
       </Row>
