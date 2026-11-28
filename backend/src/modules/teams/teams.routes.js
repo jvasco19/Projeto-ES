@@ -15,18 +15,18 @@ teamsRouter.get('/products/:productId/teams',
 
 teamsRouter.post('/products/:productId/teams',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.create
 );
 
 teamsRouter.patch('/products/:productId/teams/:teamId',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.update
 );
 
 teamsRouter.delete('/products/:productId/teams/:teamId',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.remove
 );

@@ -4,7 +4,7 @@ import {
     findRequestById,
     findAttachmentsByRequest,
     findStatusChangesByRequest,
-    findNotificationsForAuthor,
+    findNotificationsForUser,
 } from './me.repository.js';
 
 const NORMAL_PATH = ['submitted', 'in_review', 'approved', 'planned', 'delivered'];
@@ -56,15 +56,16 @@ function buildTimeline(currentStatus, changes) {
 }
 
 export async function listMyNotifications(userID) {
-    const rows = await findNotificationsForAuthor(userID);
+    const rows = await findNotificationsForUser(userID);
 
     return rows.map((row) => ({
         id: row.id,
         type: 'status',
+        reason: row.isAuthor ? 'author' : 'vote',
         requestId: row.requestId,
         requestTitle: row.requestTitle,
         status: row.status,
         createdAt: row.createdAt,
-        link: `/me/requests/${row.requestId}`,
+        link: row.isAuthor ? `/me/requests/${row.requestId}` : `/me/products/${row.productId}`,
     }));
 }

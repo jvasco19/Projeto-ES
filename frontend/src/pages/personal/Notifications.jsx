@@ -28,7 +28,7 @@ export default function Notifications() {
   // Converte o formato da API para o que a lista mostra
   const list = (data ?? []).map((n) => ({
     ...n,
-    title: `O teu pedido R-${n.requestId} passou a "${requestStatus[n.status]?.label ?? n.status}"`,
+    title: `${n.reason === 'vote' ? 'Um pedido em que votaste' : 'O teu pedido'} R-${n.requestId} passou a "${requestStatus[n.status]?.label ?? n.status}"`,
     detail: n.requestTitle,
     time: formatDate(n.createdAt),
     read: readIds.has(String(n.id)),

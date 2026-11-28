@@ -19,6 +19,18 @@ requestsRouter.get('/products/:productId/requests/public',
     controller.listPublic
 );
 
+requestsRouter.post('/products/:productId/requests/:requestId/vote',
+    requireAuth,
+    requireRole('customer'),
+    controller.vote
+);
+
+requestsRouter.delete('/products/:productId/requests/:requestId/vote',
+    requireAuth,
+    requireRole('customer'),
+    controller.unvote
+);
+
 requestsRouter.post('/requests/:requestId/attachments',
     requireAuth,
     requireRequestAuthor,

@@ -33,10 +33,13 @@ export async function findFeature(productId, featureId) {
                 f.team_id      AS "teamId",
                 t.name         AS "teamName",
                 f.assignee_id  AS "assigneeId",
-                u.name         AS "assigneeName"
+                u.name         AS "assigneeName",
+                rel.name       AS "releaseName",
+                rel.objective  AS "releaseObjective"
            FROM features f
            LEFT JOIN teams t ON t.id = f.team_id
            LEFT JOIN users u ON u.id = f.assignee_id
+           LEFT JOIN releases rel ON rel.id = f.release_id
           WHERE f.id = $1 AND f.product_id = $2`,
         [featureId, productId]
     );
