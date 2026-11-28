@@ -56,3 +56,86 @@ describe('Pedidos dos clientes', () => {
         expect(res.status).toBe(403);
     });
 });
+
+describe('Votos em pedidos públicos', () => {
+    let customer, otherCustomer, productManager, votesBefore;
+    const vote = '/api/products/1/requests/8/vote';
+
+    async function findRequest8(token) {
+        const res = await as(token).get('/api/products/1/requests/public?search=chave');
+        return res.body.find((r) => String(r.id) === '8');
+    }
+
+    beforeAll(async () => {
+        customer = await login(users.customer);
+        otherCustomer = await login(users.otherCustomer);
+        productManager = await login(users.productManager);
+        votesBefore = (await findRequest8(customer)).votes;
+    });
+
+    it('um cliente vota num pedido público de outro cliente', async () => {
+        const res = await as(customer).post(vote);
+        expect(res.status).toBe(200);
+        expect(res.body.votes).toBe(votesBefore + 1);
+        expect(res.body.votedByMe).toBe(true);
+    });
+
+    it('votar outra vez não conta um segundo voto', async () => {
+        const res = await as(customer).post(vote);
+        expect(res.status).toBe(200);
+        expect(res.body.votes).toBe(votesBefore + 1);
+    });
+
+    it('a pesquisa mostra os votos e se o cliente votou', async () => {
+        const mine = await findRequest8(customer);
+        expect(mine.votes).toBe(votesBefore + 1);
+        expect(mine.votedByMe).toBe(true);
+
+        const other = await findRequest8(otherCustomer);
+        expect(other.votedByMe).toBe(false);
+    });
+
+    it('quem votou é notificado quando o estado do pedido muda', async () => {
+        await as(productManager).post('/api/products/1/triage/8/review');
+
+        const res = await as(customer).get('/api/me/notifications');
+        const notification = res.body.find((n) => String(n.requestId) === '8');
+        expect(notification.reason).toBe('vote');
+        expect(notification.status).toBe('in_review');
+        expect(notification.link).toBe('/me/products/1');
+    });
+
+    it('um cliente retira o voto', async () => {
+        const res = await as(customer).delete(vote);
+        expect(res.status).toBe(200);
+        expect(res.body.votes).toBe(votesBefore);
+        expect(res.body.votedByMe).toBe(false);
+    });
+
+    it('retirar um voto que não existe não dá erro', async () => {
+        const res = await as(customer).delete(vote);
+        expect(res.status).toBe(200);
+        expect(res.body.votes).toBe(votesBefore);
+    });
+
+    it('um cliente não vota no próprio pedido', async () => {
+        const res = await as(customer).post('/api/products/1/requests/6/vote');
+        expect(res.status).toBe(409);
+    });
+
+    it('não é possível votar num pedido privado', async () => {
+        const res = await as(customer).post('/api/products/1/requests/12/vote');
+        expect(res.status).toBe(404);
+    });
+
+    it('o id do pedido tem de ser um número', async () => {
+        const res = await as(customer).post('/api/products/1/requests/abc/vote');
+        expect(res.status).toBe(400);
+        expect(res.body.field).toBe('requestId');
+    });
+
+    it('só os clientes votam', async () => {
+        const res = await as(productManager).post(vote);
+        expect(res.status).toBe(403);
+    });
+});
