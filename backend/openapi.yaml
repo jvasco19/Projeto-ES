@@ -695,6 +695,108 @@ paths:
                 error: O estado foi alterado por outra pessoa. Atualiza a página.
                 field: null
 
+  /products:
+    post:
+      tags: [Produtos]
+      summary: Cria um produto (US18, CA1)
+      description: Quem cria o produto fica como Project Manager. É gerado o link para os clientes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductInput'
+      responses:
+        '201':
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProduct'
+        '400':
+          description: Nome em falta ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Dá um nome ao produto
+                field: name
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /products/{productId}/milestones:
+    get:
+      tags: [Equipas]
+      summary: Lista as milestones do produto por data de entrega (US18)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Milestones do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Milestone'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+    post:
+      tags: [Equipas]
+      summary: Cria uma milestone (US18, CA3 e CA4)
+      description: Só para o Project Manager (CA5). A data de entrega não pode já ter passado (CA4).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilestoneInput'
+      responses:
+        '201':
+          description: Milestone criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome em falta, data inválida ou data que já passou (CA4)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto (CA5)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Já existe uma milestone com esse nome
+                field: name
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -1371,3 +1473,66 @@ components:
           $ref: '#/components/schemas/FeatureStatus'
       example:
         status: in_review
+
+    CreateProductInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+          example: CRM para equipas comerciais de PME.
+
+    CreatedProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '6'
+        name:
+          type: string
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          example: stream
+        linkToken:
+          type: string
+          description: Código do link que a equipa partilha com os clientes (/r/{linkToken})
+          example: atl-3F9A1C
+        role:
+          type: string
+          enum: [project_manager]
+
+    MilestoneInput:
+      type: object
+      required: [name, dueDate]
+      properties:
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          description: Não pode ser anterior a hoje (CA4)
+          example: '2027-01-31'
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          example: '2027-01-31'
