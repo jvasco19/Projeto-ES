@@ -37,17 +37,19 @@ export async function create({productId, authorId, title, description, category,
     }
 }
 
-// encontrar pedidos públicos
-export async function findPublic(productId, search) {
+// encontrar pedidos públicos com o número de votos e se o utilizador votou em cada um
+export async function findPublic(productId, search, userId) {
     const { rows } = await query(
-        `SELECT id, title, status, created_at AS "createdAt"
-         FROM feature_requests
-         WHERE product_id = $1
-         AND is_public = true
-         AND ($2::text IS NULL OR title ILIKE '%' || $2 || '%')
-         ORDER BY created_at DESC
+        `SELECT r.id, r.title, r.status, r.created_at AS "createdAt",
+                (SELECT COUNT(*) FROM request_votes v WHERE v.request_id = r.id)::int AS "votes",
+                EXISTS (SELECT 1 FROM request_votes v WHERE v.request_id = r.id AND v.user_id = $3) AS "votedByMe"
+         FROM feature_requests r
+         WHERE r.product_id = $1
+         AND r.is_public = true
+         AND ($2::text IS NULL OR r.title ILIKE '%' || $2 || '%')
+         ORDER BY r.created_at DESC
          LIMIT 20`,
-         [productId, search]
+         [productId, search, userId]
     );
     return rows;
 }
@@ -83,6 +85,46 @@ export async function findAttachmentById(attachmentId) {
         [attachmentId]
     );
     return rows[0] ?? null;
+}
+
+// Pedido público do produto ou null se não existir ou for de outro produto ou for privado
+export async function findPublicRequest(productId, requestId) {
+    const { rows } = await query(
+        `SELECT id, author_id AS "authorId"
+         FROM feature_requests
+         WHERE id = $1 AND product_id = $2 AND is_public = true`,
+        [requestId, productId]
+    );
+    return rows[0] ?? null;
+}
+
+// regista o voto se o utilizador já tiver votado não faz nada
+export async function insertVote(requestId, userId) {
+    await query(
+        `INSERT INTO request_votes (request_id, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT (request_id, user_id) DO NOTHING`,
+        [requestId, userId]
+    );
+}
+
+// retira o voto se o utilizador não tiver votado não faz nada
+export async function deleteVote(requestId, userId) {
+    await query(
+        'DELETE FROM request_votes WHERE request_id = $1 AND user_id = $2',
+        [requestId, userId]
+    );
+}
+
+// número de votos do pedido
+export async function countVotes(requestId) {
+    const { rows } = await query(
+        `SELECT COUNT(*)::int AS total
+           FROM request_votes
+          WHERE request_id = $1`,
+        [requestId]
+    );
+    return rows[0].total;
 }
 
 // Papel do utilizador no produto ou null se não for membro

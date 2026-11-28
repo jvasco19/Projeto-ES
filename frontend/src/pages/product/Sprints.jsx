@@ -131,7 +131,7 @@ function Board({ items, myTeamName, onOpen, onMove }) {
   )
 }
 
-// ---------- Sprint planeado (US22) ----------
+// ---------- Sprint planeado ---------
 function Planning({ sprint, planned, candidates, canPlan, canManage, onStart }) {
   const [items, setItems] = useState(planned)
   const [pending, setPending] = useState(null)
@@ -240,7 +240,7 @@ function Summary({ sprint, summary, base }) {
             <div key={title}>
               <Group gap="xs" p="md" pb="xs"><Icon name={icon} size={18} style={{ color: `var(--mantine-color-${color}-6)` }} /><Text fw={600} size="sm">{title}</Text></Group>
               {list.map((f) => (
-                <Group key={f.id} justify="space-between" px="md" py="xs" component={Link} to={`${base}/funcionalidades/${f.id}`}
+                <Group key={f.id} justify="space-between" px="md" py="xs" component={Link} to={`${base}/features/${f.id}`}
                   className="row-link" style={{ color: 'inherit', textDecoration: 'none' }}>
                   <Text size="sm">{f.title}</Text>
                   <Text size="xs" c="dimmed">{f.storyPoints} pts</Text>
@@ -325,7 +325,7 @@ export default function Sprints() {
     list: s.sprintList, candidates: s.sprintCandidates,
     planned: s.plannedSprintItems, summary: s.sprintSummary, backlog: s.backlog,
   }))
-  // US11: o board vem da API
+
   const boardApi = useApi(`/products/${productId}/board`)
   const [sprints, setSprints] = useState(null)
   const [selected, setSelected] = useState('s14')
@@ -361,7 +361,6 @@ export default function Sprints() {
     setQuick({ ...item, team: item.teamName, assignee: item.assigneeId, canChangeStatus: item.canMove, sprint: sprint.name })
   }
 
-  // US11: muda o estado na API e atualiza o cartão (e a vista rápida, se estiver aberta)
   async function moveFeature(item, status) {
     try {
       const updated = await api(`/products/${productId}/features/${item.id}/status`, { method: 'PATCH', body: { status } })
@@ -458,7 +457,7 @@ export default function Sprints() {
             <Text fw={600} size="lg">{quick.title}</Text>
             <FeatureProperties key={quick.id} feature={quick} role={role} base={base}
               onChange={(f) => setQuick(f)} onStatusChange={(status) => moveFeature(quick, status)} />
-            <Button component={Link} to={`${base}/funcionalidades/${quick.id}`} variant="light" rightSection={<Icon name="arrow_forward" size={18} />}>
+            <Button component={Link} to={`${base}/features/${quick.id}`} variant="light" rightSection={<Icon name="arrow_forward" size={18} />}>
               Abrir página completa
             </Button>
           </Stack>

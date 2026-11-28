@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react'
 import {
   ActionIcon, Alert, Anchor, Avatar, Badge, Breadcrumbs, Button, Card, Grid, Group, Menu, Modal, Paper, Select, SimpleGrid,
-  Skeleton, Stack, Tabs, Text, TextInput, Textarea, Timeline, Title, Tooltip, useComputedColorScheme,
+  Stack, Tabs, Text, TextInput, Textarea, Timeline, Title, Tooltip, useComputedColorScheme,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { Icon } from '../../components/Icon.jsx'
 import { FeatureProperties } from '../../components/FeatureProperties.jsx'
 import { Empty, PageLoader, StatusBadge } from '../../components/ui.jsx'
-import { fakeRequest, useData } from '../../data/useData.js'
+import { useData } from '../../data/useData.js'
 import { useApi } from '../../data/useApi.js'
 import { api } from '../../lib/api.js'
 import { formatDate } from '../../lib/format.js'
@@ -52,17 +52,29 @@ function Traceability({ feature, hasStory }) {
   )
 }
 
+const APPROVED_REQUEST = ['approved', 'planned', 'delivered']
+
 function StoryEditor({ initial, draft, onSave, onCancel }) {
   const [story, setStory] = useState(initial)
   const [errors, setErrors] = useState({})
-  const [run, loading] = useAction()
+  const [loading, setLoading] = useState(false)
 
-  function save() {
+  async function save() {
     const err = {}
     for (const k of ['role', 'goal', 'benefit']) if (!story[k].trim()) err[k] = 'Campo obrigatório'
     setErrors(err)
     if (Object.keys(err).length) return notifyError('Preenche o papel, o objetivo e o benefício.', 'User Story não guardada')
-    run(draft ? 'Rascunho confirmado. A User Story ficou guardada.' : 'User Story guardada. A equipa foi notificada da alteração.', () => onSave(story))
+    setLoading(true)
+    try {
+      await onSave({ role: story.role, goal: story.goal, benefit: story.benefit })
+      notifySuccess(draft ? 'Rascunho confirmado. A User Story ficou guardada.' : 'User Story guardada.')
+    } catch (e) {
+
+      if (e.field) setErrors({ [e.field]: e.message })
+      notifyError(e.message, 'User Story não guardada')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -81,15 +93,33 @@ function StoryEditor({ initial, draft, onSave, onCancel }) {
   )
 }
 
-function Criteria({ items, setItems, editable }) {
+function Criteria({ items, editable, send }) {
   const [text, setText] = useState('')
   const [editing, setEditing] = useState(null)
+  const [busy, setBusy] = useState(false)
 
-  function add() {
+  async function run(method, suffix, body, message) {
+    setBusy(true)
+    try {
+      await send(method, `/criteria${suffix}`, body)
+      notifySuccess(message)
+      return true
+    } catch (e) {
+      notifyError(e.message)
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function add() {
     if (!text.trim()) return notifyError('Escreve o critério antes de o adicionar.')
-    setItems([...items, { id: `c${Date.now()}`, text }])
-    setText('')
-    notifySuccess('Critério de aceitação adicionado.')
+    if (await run('POST', '', { text }, 'Critério de aceitação adicionado.')) setText('')
+  }
+
+  async function save() {
+    if (!editing.text.trim()) return notifyError('O critério não pode ficar vazio.')
+    if (await run('PATCH', `/${editing.id}`, { text: editing.text }, 'Critério atualizado.')) setEditing(null)
   }
 
   return (
@@ -102,10 +132,8 @@ function Criteria({ items, setItems, editable }) {
             {editing?.id === c.id ? (
               <Group style={{ flex: 1 }} wrap="nowrap" gap="xs">
                 <TextInput style={{ flex: 1 }} value={editing.text} onChange={(e) => setEditing({ ...editing, text: e.currentTarget.value })} aria-label="Editar critério" />
-                <Button size="xs" onClick={() => {
-                  if (!editing.text.trim()) return notifyError('O critério não pode ficar vazio.')
-                  setItems(items.map((x) => (x.id === c.id ? editing : x))); setEditing(null); notifySuccess('Critério atualizado.')
-                }}>Guardar</Button>
+                <Button size="xs" loading={busy} onClick={save}>Guardar</Button>
+                <Button size="xs" variant="default" onClick={() => setEditing(null)}>Cancelar</Button>
               </Group>
             ) : (
               <Text size="sm" style={{ flex: 1 }}>{c.text}</Text>
@@ -113,8 +141,8 @@ function Criteria({ items, setItems, editable }) {
             {editable && editing?.id !== c.id && (
               <Group gap={2} wrap="nowrap">
                 <ActionIcon variant="subtle" color="gray" aria-label="Editar critério" onClick={() => setEditing(c)}><Icon name="edit" size={18} /></ActionIcon>
-                <ActionIcon variant="subtle" color="red" aria-label="Remover critério"
-                  onClick={() => { setItems(items.filter((x) => x.id !== c.id)); notifySuccess('Critério removido.') }}>
+                <ActionIcon variant="subtle" color="red" aria-label="Remover critério" disabled={busy}
+                  onClick={() => run('DELETE', `/${c.id}`, undefined, 'Critério removido.')}>
                   <Icon name="delete" size={18} />
                 </ActionIcon>
               </Group>
@@ -127,24 +155,22 @@ function Criteria({ items, setItems, editable }) {
         <Group mt="md" gap="xs" wrap="nowrap">
           <TextInput style={{ flex: 1 }} placeholder="Dado… quando… então…" value={text} onChange={(e) => setText(e.currentTarget.value)}
             onKeyDown={(e) => e.key === 'Enter' && add()} aria-label="Novo critério" />
-          <Button variant="light" onClick={add}>Adicionar</Button>
+          <Button variant="light" loading={busy} onClick={add}>Adicionar</Button>
         </Group>
       )}
     </Card>
   )
 }
 
-function StoryTab({ feature, hasStory, editable, aiDraft, initialDraft }) {
-  const [story, setStory] = useState(hasStory && !initialDraft ? feature.userStory : null)
-  const [mode, setMode] = useState(initialDraft ? 'draft' : null)
-  const [generating, setGenerating] = useState(false)
-  const [criteria, setCriteria] = useState(hasStory ? feature.criteria : [])
+function StoryTab({ feature, storyData, editable, send }) {
+  const { request, story, criteria } = storyData
+  const [mode, setMode] = useState(null) // 'edit' | 'manual'
 
-  async function generate() {
-    setGenerating(true)
-    await fakeRequest(1500)
-    setGenerating(false)
-    setMode('draft')
+  const requestPending = request && !APPROVED_REQUEST.includes(request.status)
+
+  async function save(values) {
+    await send(story ? 'PATCH' : 'POST', '', values)
+    setMode(null)
   }
 
   return (
@@ -154,21 +180,29 @@ function StoryTab({ feature, hasStory, editable, aiDraft, initialDraft }) {
           Objetivo da release {feature.release}: <Text span c="var(--mantine-color-text)" fw={500}>{feature.releaseObjective}</Text>
         </Text>
       )}
-      {!story && !mode && (
-        <Alert color="yellow" variant="light" icon={<Icon name="warning" />} title="Ainda não há requisitos definidos">
-          <Text size="sm">Cria a User Story para que a equipa saiba exatamente o que desenvolver.</Text>
-          {editable ? (
-            <Group mt="md" gap="sm">
-              <Button size="xs" leftSection={<Icon name="auto_awesome" size={16} />} loading={generating} onClick={generate}>Gerar rascunho com IA</Button>
-              <Button size="xs" variant="default" onClick={() => setMode('manual')}>Escrever manualmente</Button>
-            </Group>
-          ) : <Text size="sm" mt={4}>O Product Manager vai escrevê-la.</Text>}
-        </Alert>
+      {request && (
+        <Text size="sm" c="dimmed">
+          Pedido de origem: <Text span c="var(--mantine-color-text)" fw={500}>R-{request.id} · {request.title}</Text>
+        </Text>
       )}
-      {generating && <Skeleton h={220} />}
-      {mode === 'draft' && <StoryEditor initial={initialDraft ?? aiDraft} draft onSave={(s) => { setStory(s); setMode(null) }} onCancel={() => setMode(null)} />}
-      {mode === 'manual' && <StoryEditor initial={{ role: '', goal: '', benefit: '' }} onSave={(s) => { setStory(s); setMode(null) }} onCancel={() => setMode(null)} />}
-      {mode === 'edit' && <StoryEditor initial={story} onSave={(s) => { setStory(s); setMode(null) }} onCancel={() => setMode(null)} />}
+      {!story && !mode && (
+        requestPending ? (
+          <Alert color="yellow" variant="light" icon={<Icon name="warning" />} title="O pedido ainda não foi aprovado">
+            <Text size="sm">A User Story só pode ser criada depois de o pedido R-{request.id} ser aprovado na análise de pedidos.</Text>
+          </Alert>
+        ) : (
+          <Alert color="yellow" variant="light" icon={<Icon name="warning" />} title="Ainda não há requisitos definidos">
+            <Text size="sm">Cria a User Story para que a equipa saiba exatamente o que desenvolver.</Text>
+            {editable ? (
+              <Group mt="md" gap="sm">
+                <Button size="xs" variant="default" onClick={() => setMode('manual')}>Escrever manualmente</Button>
+              </Group>
+            ) : <Text size="sm" mt={4}>O Product Manager vai escrevê-la.</Text>}
+          </Alert>
+        )
+      )}
+      {mode === 'manual' && <StoryEditor initial={{ role: '', goal: '', benefit: '' }} onSave={save} onCancel={() => setMode(null)} />}
+      {mode === 'edit' && <StoryEditor initial={story} onSave={save} onCancel={() => setMode(null)} />}
       {story && !mode && (
         <Card>
           <Group justify="space-between" mb="sm">
@@ -180,7 +214,7 @@ function StoryTab({ feature, hasStory, editable, aiDraft, initialDraft }) {
           </Text>
         </Card>
       )}
-      {story && <Criteria items={criteria} setItems={setCriteria} editable={editable} />}
+      {story && <Criteria items={criteria} editable={editable} send={send} />}
     </Stack>
   )
 }
@@ -264,7 +298,7 @@ function Dependencies({ feature, backlog, base }) {
           colorMode={scheme}
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
-          onNodeClick={(_, n) => n.id !== feature.id && navigate(`${base}/funcionalidades/${n.id}`)}
+          onNodeClick={(_, n) => n.id !== feature.id && navigate(`${base}/features/${n.id}`)}
         >
           <Background gap={20} size={1} />
           <Controls showInteractive={false} />
@@ -506,16 +540,20 @@ export default function FeatureDetail() {
   const navigate = useNavigate()
   const { role, base, productId } = useProduct()
   const { data, loading } = useData((s) => ({
-    detail: s.featureDetail, backlog: s.backlog, aiDraft: s.aiStoryDraft, requirements: s.requirements,
+    detail: s.featureDetail, backlog: s.backlog,
   }))
   const featureApi = useApi(`/products/${productId}/features/${featureId}`)
+
+  const storyPath = `/products/${productId}/features/${featureId}/story`
+  const storyApi = useApi(storyPath)
+  const [storyUpdated, setStoryUpdated] = useState(null)
   const [updated, setUpdated] = useState(null)
   const [changing, setChanging] = useState(false)
   const [overrides, setOverrides] = useState({})
   const [archiveOpened, archiveModal] = useDisclosure(false)
   const [runArchive, archiving] = useAction()
 
-  if (loading || featureApi.loading) return <PageLoader rows={2} />
+  if (loading || featureApi.loading || storyApi.loading) return <PageLoader rows={2} />
 
   if (featureApi.error) {
     return (
@@ -537,20 +575,35 @@ export default function FeatureDetail() {
     team: f.teamName,
     assignee: f.assigneeId,
     assigneeName: f.assigneeName,
+    release: f.releaseName,
+    releaseObjective: f.releaseObjective,
+    sprint: null,
     ...overrides,
     status: f.status,
     allowedStatuses: f.allowedStatuses,
     canChangeStatus: f.canChangeStatus,
     statusLog: f.statusLog,
   }
-  const req = data.requirements.find((r) => r.featureId === featureId)
-  const parts = req?.story?.match(/^Como (.+?), quero (.+?), para (.+?)\.?$/)
-  const userStory = parts ? { role: parts[1], goal: parts[2], benefit: parts[3] } : data.detail.userStory
-  feature.userStory = userStory
-  const hasStory = req ? req.state !== 'sem' : true
-  const initialDraft = req?.state === 'rascunho' ? userStory : null
+
+  const storyData = storyUpdated ?? storyApi.data ?? { request: null, story: null, criteria: [] }
+  feature.userStory = storyData.story
+  feature.criteria = storyData.criteria
+  const origin = storyData.request
+  feature.request = origin && {
+    id: `R-${origin.id}`,
+    requestId: origin.id,
+    text: origin.description,
+    customer: origin.authorName,
+    submittedAt: formatDate(origin.createdAt),
+  }
+  const hasStory = Boolean(storyData.story)
   const nextStatus = f.nextStatus
   const canEdit = can(role, 'editFeature')
+
+
+  async function sendStory(method, suffix, body) {
+    setStoryUpdated(await api(`${storyPath}${suffix}`, { method, body }))
+  }
 
   async function changeStatus(status) {
     setChanging(true)
@@ -615,7 +668,7 @@ export default function FeatureDetail() {
               <Tabs.Tab value="history" leftSection={<Icon name="history" size={18} />}>Histórico</Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="trace"><Traceability feature={feature} hasStory={hasStory} /></Tabs.Panel>
-            <Tabs.Panel value="story"><StoryTab feature={feature} hasStory={hasStory} editable={can(role, 'story')} aiDraft={data.aiDraft} initialDraft={initialDraft} /></Tabs.Panel>
+            <Tabs.Panel value="story"><StoryTab feature={feature} storyData={storyData} editable={can(role, 'story')} send={sendStory} /></Tabs.Panel>
             <Tabs.Panel value="deps"><Dependencies feature={feature} backlog={data.backlog} base={base} /></Tabs.Panel>
             <Tabs.Panel value="talk"><Discussion feature={feature} canDecide={can(role, 'decision')} /></Tabs.Panel>
             <Tabs.Panel value="history"><History feature={feature} /></Tabs.Panel>

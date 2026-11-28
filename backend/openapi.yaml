@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Workstream API
   version: 0.1.0
-  description: API do Workstream (gestão de pedidos de funcionalidades e roadmap).
+  description: API do Workstream
 
 servers:
   - url: /api
@@ -161,7 +161,7 @@ paths:
   /products/{productId}/requests:
     post:
       tags: [Pedidos]
-      summary: Submete um pedido de funcionalidade (US13)
+      summary: Submete um pedido de funcionalidade
       description: >
         Só para clientes do produto. Cria o pedido com o estado submitted,
         regista a primeira mudança de estado e a versão 1, numa só transação.
@@ -199,10 +199,11 @@ paths:
   /products/{productId}/requests/public:
     get:
       tags: [Pedidos]
-      summary: Lista os pedidos públicos do produto (US13, passo de pesquisa)
+      summary: Lista os pedidos públicos do produto (passo de pesquisa)
       description: >
         Usado antes de submeter, para o cliente ver se já existe um pedido parecido.
-        Devolve no máximo 20 pedidos, do mais recente para o mais antigo.
+        Devolve no máximo 20 pedidos, do mais recente para o mais antigo, cada um
+        com o número de votos e se o utilizador com sessão já votou nele.
       parameters:
         - $ref: '#/components/parameters/ProductId'
         - name: search
@@ -228,10 +229,108 @@ paths:
         '404':
           $ref: '#/components/responses/ProductNotFound'
 
+  /products/{productId}/requests/{requestId}/vote:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Pedidos]
+      summary: Vota num pedido público
+      description: >
+        Só para clientes do produto. Cada cliente tem no máximo um voto por pedido:
+        votar outra vez não dá erro e não conta um segundo voto. Não é possível votar
+        no próprio pedido. A partir do voto, o cliente recebe as mudanças de estado
+        do pedido nas notificações.
+      responses:
+        '200':
+          description: Voto registado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResult'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um número inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          description: >
+            O produto não existe ou o utilizador não é membro, ou o pedido não existe,
+            é privado ou pertence a outro produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido é do próprio cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Não podes votar no teu próprio pedido
+                field: null
+    delete:
+      tags: [Pedidos]
+      summary: Retira o voto num pedido público
+      description: >
+        Só para clientes do produto. Retirar um voto que não existe não dá erro.
+      responses:
+        '200':
+          description: Voto retirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResult'
+              example:
+                requestId: '8'
+                votes: 1
+                votedByMe: false
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um número inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          description: >
+            O produto não existe ou o utilizador não é membro, ou o pedido não existe,
+            é privado ou pertence a outro produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
   /me/requests:
     get:
       tags: [Área do cliente]
-      summary: Lista os pedidos do utilizador (US15)
+      summary: Lista os pedidos do utilizador
       description: >
         Pedidos submetidos pelo utilizador com sessão, de todos os produtos,
         do mais recente para o mais antigo.
@@ -250,7 +349,7 @@ paths:
   /me/requests/{id}:
     get:
       tags: [Área do cliente]
-      summary: Detalhe de um pedido do utilizador (US15)
+      summary: Detalhe de um pedido do utilizador
       description: >
         Devolve o pedido com os anexos, a release (se houver) e o percurso de estados.
         Só o autor do pedido o pode ver.
@@ -281,7 +380,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          description: O pedido pertence a outro utilizador (CA3)
+          description: O pedido pertence a outro utilizador
           content:
             application/json:
               schema:
@@ -304,8 +403,9 @@ paths:
       tags: [Área do cliente]
       summary: Notificações das mudanças de estado dos pedidos do utilizador
       description: >
-        Mudanças de estado nos pedidos do utilizador feitas por outra pessoa,
-        da mais recente para a mais antiga (no máximo 50).
+        Mudanças de estado feitas por outra pessoa nos pedidos do utilizador e nos
+        pedidos públicos em que votou (só as feitas depois do voto), da mais recente
+        para a mais antiga (no máximo 50). O campo reason indica o motivo.
       responses:
         '200':
           description: Notificações do utilizador
@@ -321,7 +421,7 @@ paths:
   /products/{productId}/teams:
     get:
       tags: [Equipas]
-      summary: Lista as equipas do produto, com a carga e os membros (US18)
+      summary: Lista as equipas do produto, com a carga e os membros
       description: >
         A carga (load) é a soma dos story points das funcionalidades da equipa
         que ainda não estão concluídas. Só para a equipa do produto (não clientes).
@@ -344,7 +444,7 @@ paths:
           $ref: '#/components/responses/ProductNotFound'
     post:
       tags: [Equipas]
-      summary: Cria uma equipa no produto (US18)
+      summary: Cria uma equipa no produto
       parameters:
         - $ref: '#/components/parameters/ProductId'
       requestBody:
@@ -384,7 +484,7 @@ paths:
   /products/{productId}/teams/{teamId}:
     patch:
       tags: [Equipas]
-      summary: Edita o nome e/ou a capacidade de uma equipa (US18)
+      summary: Edita o nome e/ou a capacidade de uma equipa
       description: Os campos que não forem enviados mantêm o valor atual.
       parameters:
         - $ref: '#/components/parameters/ProductId'
@@ -423,7 +523,7 @@ paths:
           $ref: '#/components/responses/TeamNameTaken'
     delete:
       tags: [Equipas]
-      summary: Apaga uma equipa (US18)
+      summary: Apaga uma equipa
       description: Os membros e as funcionalidades da equipa ficam sem equipa.
       parameters:
         - $ref: '#/components/parameters/ProductId'
@@ -450,7 +550,7 @@ paths:
   /products/{productId}/members:
     get:
       tags: [Membros]
-      summary: Lista os membros da equipa do produto (US18)
+      summary: Lista os membros da equipa do produto
       description: >
         Devolve os membros com papel product_manager, project_manager ou developer.
         Os clientes não aparecem: entram no produto pelo link, não pela equipa.
@@ -473,7 +573,7 @@ paths:
           $ref: '#/components/responses/ProductNotFound'
     post:
       tags: [Membros]
-      summary: Convida (adiciona) ao produto uma pessoa que já tem conta (US18)
+      summary: Convida (adiciona) ao produto uma pessoa que já tem conta
       parameters:
         - $ref: '#/components/parameters/ProductId'
       requestBody:
@@ -524,7 +624,7 @@ paths:
   /products/{productId}/members/{userId}:
     patch:
       tags: [Membros]
-      summary: Altera o papel e/ou a equipa de um membro (US18)
+      summary: Altera o papel e/ou a equipa de um membro
       description: >
         Os campos que não forem enviados mantêm o valor atual.
         teamId a null tira o membro da equipa.
@@ -566,7 +666,7 @@ paths:
           $ref: '#/components/responses/LastProductManager'
     delete:
       tags: [Membros]
-      summary: Remove um membro do produto (US18)
+      summary: Remove um membro do produto
       parameters:
         - $ref: '#/components/parameters/ProductId'
         - $ref: '#/components/parameters/UserId'
@@ -594,7 +694,7 @@ paths:
   /products/{productId}/board:
     get:
       tags: [Funcionalidades]
-      summary: Quadro das funcionalidades do produto (US11)
+      summary: Quadro das funcionalidades do produto
       description: >
         Todas as funcionalidades do produto, ordenadas pelo fluxo dos estados.
         canMove indica se quem pede pode mudar o estado (developer da equipa da funcionalidade).
@@ -617,7 +717,7 @@ paths:
   /products/{productId}/features/{featureId}:
     get:
       tags: [Funcionalidades]
-      summary: Detalhe da funcionalidade com o histórico de estados (US11)
+      summary: Detalhe da funcionalidade com o histórico de estados
       parameters:
         - $ref: '#/components/parameters/ProductId'
         - $ref: '#/components/parameters/FeatureId'
@@ -640,11 +740,11 @@ paths:
   /products/{productId}/features/{featureId}/status:
     patch:
       tags: [Funcionalidades]
-      summary: Muda o estado da funcionalidade um passo para a frente ou para trás (US11)
+      summary: Muda o estado da funcionalidade um passo para a frente ou para trás
       description: >
-        Só para developers da equipa da funcionalidade (CA3). Não se pode saltar estados
-        no fluxo todo, in_progress, in_review, done (CA2). A mudança fica registada com a
-        data e o autor (CA1). Devolve a funcionalidade atualizada, com o histórico.
+        Só para developers da equipa da funcionalidade. Não se pode saltar estados
+        no fluxo todo, in_progress, in_review, done. A mudança fica registada com a
+        data e o autor. Devolve a funcionalidade atualizada, com o histórico.
       parameters:
         - $ref: '#/components/parameters/ProductId'
         - $ref: '#/components/parameters/FeatureId'
@@ -662,7 +762,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FeatureDetail'
         '400':
-          description: Estado inválido, igual ao atual, ou salto de estados (CA2)
+          description: Estado inválido, igual ao atual, ou salto de estados
           content:
             application/json:
               schema:
@@ -675,7 +775,7 @@ paths:
         '403':
           description: >
             O utilizador não é developer, ou a funcionalidade é de outra equipa
-            ou não tem equipa (CA3)
+            ou não tem equipa
           content:
             application/json:
               schema:
@@ -841,6 +941,778 @@ paths:
           $ref: '#/components/responses/NotProductManager'
         '404':
           $ref: '#/components/responses/FeatureNotFound'
+
+  /products/{productId}/features/{featureId}/story:
+    get:
+      tags: [User Stories]
+      summary: User Story e critérios de aceitação de uma funcionalidade
+      description: >
+        Devolve o pedido de origem (se existir), a User Story (null se ainda não tiver)
+        e os critérios de aceitação por ordem. Só para a equipa do produto (não clientes).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      responses:
+        '200':
+          description: User Story da funcionalidade
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          $ref: '#/components/responses/InvalidFeatureId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+    post:
+      tags: [User Stories]
+      summary: Cria a User Story da funcionalidade
+      description: >
+        Só para o Product Manager. Se a funcionalidade veio de um pedido, o pedido
+        tem de estar aprovado (approved, planned ou delivered). Papel, objetivo
+        e benefício são obrigatórios. A User Story fica ligada ao pedido através
+        da funcionalidade. Cada funcionalidade só tem uma User Story.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryInput'
+      responses:
+        '201':
+          description: User Story criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Campo em falta, demasiado longo ou id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o benefício
+                field: benefit
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+        '409':
+          description: O pedido de origem ainda não foi aprovado ou a funcionalidade já tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O pedido tem de estar aprovado para criar a User Story
+                field: null
+    patch:
+      tags: [User Stories]
+      summary: Edita a User Story
+      description: Só para o Product Manager. Os campos que não forem enviados mantêm o valor atual.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryUpdateInput'
+            example:
+              goal: ver as comissões de cada vendedor por mês
+      responses:
+        '200':
+          description: User Story atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Campo enviado vazio ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o papel
+                field: role
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade não existe ou ainda não tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Esta funcionalidade ainda não tem User Story
+                field: null
+
+  /products/{productId}/features/{featureId}/story/criteria:
+    post:
+      tags: [User Stories]
+      summary: Adiciona um critério de aceitação no fim da lista
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriterionInput'
+      responses:
+        '201':
+          description: Critério adicionado; devolve a User Story com todos os critérios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Texto em falta ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o critério
+                field: text
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade não existe ou ainda não tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{productId}/features/{featureId}/story/criteria/{criterionId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - $ref: '#/components/parameters/FeatureId'
+      - name: criterionId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    patch:
+      tags: [User Stories]
+      summary: Edita o texto de um critério de aceitação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriterionInput'
+      responses:
+        '200':
+          description: Critério atualizado; devolve a User Story com todos os critérios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Texto em falta, demasiado longo ou id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade, a User Story ou o critério não existem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Critério não encontrado
+                field: null
+    delete:
+      tags: [User Stories]
+      summary: Remove um critério de aceitação
+      responses:
+        '200':
+          description: Critério removido; devolve a User Story com os critérios que restam
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade, a User Story ou o critério não existem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Critério não encontrado
+                field: null
+
+  /products/{productId}/triage:
+    get:
+      tags: [Análise de pedidos]
+      summary: Lista os pedidos do produto para análise
+      description: >
+        Todos os pedidos do produto, do mais recente para o mais antigo, com os anexos,
+        as etiquetas e as versões anteriores da descrição. A pesquisa e os filtros por
+        estado são feitos no frontend. Só para o Product Manager.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Pedidos do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriageRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/triage/{requestId}/review:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Abre um pedido para análise
+      description: >
+        Se o pedido estiver submitted, passa a in_review e a mudança fica registada
+        (o cliente recebe a notificação). Noutro estado, devolve o pedido sem o alterar.
+      responses:
+        '200':
+          description: Pedido (em análise, se estava submetido)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um numero inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    patch:
+      tags: [Análise de pedidos]
+      summary: Edita a descrição, a categoria e a visibilidade de um pedido
+      description: >
+        Os campos que não forem enviados mantêm o valor atual. Se a descrição mudar,
+        a anterior fica guardada como versão (aparece em versions).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageUpdateInput'
+            example:
+              category: reports
+              isPublic: true
+      responses:
+        '200':
+          description: Pedido atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Descrição vazia, categoria inválida ou visibilidade que não é true/false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Escolhe uma categoria válida
+                field: category
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    put:
+      tags: [Análise de pedidos]
+      summary: Substitui as etiquetas do pedido
+      description: >
+        A lista enviada passa a ser a lista completa de etiquetas do pedido (lista vazia
+        remove todas). Etiquetas repetidas ou vazias são ignoradas. As etiquetas novas
+        ficam disponíveis para os outros pedidos do produto.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageTagsInput'
+      responses:
+        '200':
+          description: Etiquetas guardadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Não é uma lista, mais de 10 etiquetas ou etiqueta com mais de 30 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No máximo 10 etiquetas por pedido
+                field: tags
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Aprova um pedido em análise
+      description: >
+        O pedido passa a approved e fica disponível para entrar no Product Backlog.
+        A mudança fica registada e o cliente recebe a notificação.
+      responses:
+        '200':
+          description: Pedido aprovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um numero inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido não está em análise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Só é possível aprovar um pedido que está em análise
+                field: null
+
+  /products/{productId}/triage/{requestId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Rejeita um pedido em análise com motivo
+      description: >
+        O pedido passa a rejected e o motivo fica visível para o cliente.
+        Sem motivo, o pedido mantém o estado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRejectInput'
+      responses:
+        '200':
+          description: Pedido rejeitado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Motivo em falta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Indica o motivo da rejeição. O cliente vai vê-lo no pedido.
+                field: reason
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido não está em análise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Só é possível rejeitar um pedido que está em análise
+                field: null
+
+  /products:
+    post:
+      tags: [Produtos]
+      summary: Cria um produto
+      description: Quem cria o produto fica como Project Manager. É gerado o link para os clientes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductInput'
+      responses:
+        '201':
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProduct'
+        '400':
+          description: Nome em falta ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Dá um nome ao produto
+                field: name
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /products/{productId}/milestones:
+    get:
+      tags: [Equipas]
+      summary: Lista as milestones do produto por data de entrega
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Milestones do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Milestone'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+    post:
+      tags: [Equipas]
+      summary: Cria uma milestone
+      description: Só para o Project Manager. A data de entrega não pode já ter passado.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilestoneInput'
+      responses:
+        '201':
+          description: Milestone criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome em falta, data inválida ou data que já passou
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Já existe uma milestone com esse nome
+                field: name
+
+  /products/{productId}/milestones/{milestoneId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: milestoneId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    patch:
+      tags: [Equipas]
+      summary: Edita o nome e/ou a data de entrega de uma milestone
+      description: >
+        Só para o Project Manager. Os campos que não forem enviados mantêm o valor atual.
+        Uma data nova não pode já ter passado; se a data não mudar, não é validada outra vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date
+            example:
+              dueDate: '2027-02-15'
+      responses:
+        '200':
+          description: Milestone atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome vazio, data inválida ou data que já passou
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Milestone não encontrada
+                field: null
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Equipas]
+      summary: Apaga uma milestone
+      description: Só para o Project Manager. As releases ligadas a ela ficam sem milestone.
+      responses:
+        '204':
+          description: Milestone apagada
+        '400':
+          description: Id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 # Por defeito, todos os endpoints exigem o token
 security:
@@ -1161,6 +2033,29 @@ components:
         createdAt:
           type: string
           format: date-time
+        votes:
+          type: integer
+          description: Número de votos do pedido
+          example: 3
+        votedByMe:
+          type: boolean
+          description: Se o utilizador com sessão já votou neste pedido
+          example: false
+
+    VoteResult:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: '8'
+        votes:
+          type: integer
+          description: Número de votos do pedido depois da alteração
+          example: 2
+        votedByMe:
+          type: boolean
+          description: true depois de votar, false depois de retirar o voto
+          example: true
 
     MyRequest:
       type: object
@@ -1261,6 +2156,10 @@ components:
         type:
           type: string
           enum: [status]
+        reason:
+          type: string
+          enum: [author, vote]
+          description: author se o utilizador é o autor do pedido, vote se votou nele
         requestId:
           type: string
           example: '6'
@@ -1274,6 +2173,9 @@ components:
           format: date-time
         link:
           type: string
+          description: >
+            Para o autor, o detalhe do pedido (/me/requests/{id}); para quem votou,
+            os pedidos públicos do produto (/me/products/{productId})
           example: /me/requests/6
 
     TeamInput:
@@ -1518,6 +2420,16 @@ components:
           description: Mudanças de estado, da mais recente para a mais antiga
           items:
             $ref: '#/components/schemas/FeatureStatusChange'
+        releaseName:
+          type: string
+          nullable: true
+          description: Release a que a funcionalidade pertence, ou null
+          example: v3.0
+        releaseObjective:
+          type: string
+          nullable: true
+          description: Objetivo da release
+          example: Relatórios e exportações para clientes empresariais
 
     ChangeFeatureStatusInput:
       type: object
@@ -1628,3 +2540,303 @@ components:
           description: Nova posição no backlog, a começar em 1
       example:
         position: 1
+
+    StoryInput:
+      type: object
+      required: [role, goal, benefit]
+      properties:
+        role:
+          type: string
+          maxLength: 500
+          description: Como...
+          example: gestor comercial
+        goal:
+          type: string
+          maxLength: 500
+          description: Quero...
+          example: ver as comissões por vendedor
+        benefit:
+          type: string
+          maxLength: 500
+          description: Para...
+          example: pagar a cada um o valor certo
+
+    StoryUpdateInput:
+      type: object
+      description: Só os campos enviados são alterados; não podem ficar vazios
+      properties:
+        role:
+          type: string
+          maxLength: 500
+        goal:
+          type: string
+          maxLength: 500
+        benefit:
+          type: string
+          maxLength: 500
+
+    CriterionInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          maxLength: 500
+          example: Dado um mês, quando abro o relatório, então vejo cada vendedor.
+
+    AcceptanceCriterion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '4'
+        position:
+          type: integer
+          description: Ordem na lista (pode ter falhas depois de remover critérios)
+          example: 1
+        text:
+          type: string
+          example: Dado um mês, quando abro o relatório, então vejo cada vendedor.
+
+    UserStory:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '7'
+        role:
+          type: string
+          example: gestor comercial
+        goal:
+          type: string
+          example: ver as comissões por vendedor
+        benefit:
+          type: string
+          example: pagar a cada um o valor certo
+        state:
+          type: string
+          enum: [draft, confirmed]
+          description: draft é um rascunho gerado por IA ainda por confirmar
+          example: confirmed
+        aiGenerated:
+          type: boolean
+          example: false
+        createdBy:
+          type: string
+          example: Inês Carvalho
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StoryResult:
+      type: object
+      properties:
+        request:
+          type: object
+          nullable: true
+          description: Pedido de origem da funcionalidade, ou null se foi criada pela equipa
+          properties:
+            id:
+              type: string
+              example: '6'
+            title:
+              type: string
+              example: Relatório de comissões por vendedor
+            description:
+              type: string
+              description: Texto do pedido original
+            status:
+              $ref: '#/components/schemas/RequestStatus'
+            authorName:
+              type: string
+              example: Marta Lopes
+            createdAt:
+              type: string
+              format: date-time
+        story:
+          allOf:
+            - $ref: '#/components/schemas/UserStory'
+          nullable: true
+          description: null se a funcionalidade ainda não tem User Story
+        criteria:
+          type: array
+          description: Critérios de aceitação por ordem
+          items:
+            $ref: '#/components/schemas/AcceptanceCriterion'
+
+    TriageRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '8'
+        title:
+          type: string
+          example: Autenticação com chave de segurança
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        category:
+          allOf:
+            - $ref: '#/components/schemas/RequestCategory'
+          nullable: true
+        isPublic:
+          type: boolean
+          description: Se o pedido é visível para os outros clientes
+          example: false
+        rejectionReason:
+          type: string
+          nullable: true
+          description: Motivo da rejeição (só quando o estado é rejected)
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        authorName:
+          type: string
+          example: Ana Rodrigues
+        statusChangedAt:
+          type: string
+          format: date-time
+          description: Data da última mudança de estado (para os dias parados no estado)
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              requestId:
+                type: string
+                example: '8'
+              id:
+                type: string
+                example: '2'
+              fileName:
+                type: string
+                example: politica-seguranca.pdf
+        tags:
+          type: array
+          items:
+            type: string
+          example: [segurança, login]
+        versions:
+          type: array
+          description: Versões anteriores da descrição, da mais recente para a mais antiga (sem a atual)
+          items:
+            type: object
+            properties:
+              requestId:
+                type: string
+                example: '8'
+              version:
+                type: integer
+                example: 1
+              title:
+                type: string
+              description:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+              editedBy:
+                type: string
+                example: Ana Rodrigues
+
+    TriageUpdateInput:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Não pode ficar vazia; a anterior fica guardada como versão
+        category:
+          allOf:
+            - $ref: '#/components/schemas/RequestCategory'
+          nullable: true
+        isPublic:
+          type: boolean
+
+    TriageTagsInput:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 30
+          example: [segurança, login]
+
+    TriageRejectInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          example: Já existe uma funcionalidade planeada que resolve este problema.
+
+    CreateProductInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+          example: CRM para equipas comerciais de PME.
+
+    CreatedProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '6'
+        name:
+          type: string
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          example: stream
+        linkToken:
+          type: string
+          description: Código do link que a equipa partilha com os clientes (/r/{linkToken})
+          example: atl-3F9A1C
+        role:
+          type: string
+          enum: [project_manager]
+
+    MilestoneInput:
+      type: object
+      required: [name, dueDate]
+      properties:
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          description: Não pode ser anterior a hoje
+          example: '2027-01-31'
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          example: '2027-01-31'

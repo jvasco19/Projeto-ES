@@ -15,18 +15,18 @@ membersRouter.get('/products/:productId/members',
 
 membersRouter.post('/products/:productId/members',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.invite
 );
 
 membersRouter.patch('/products/:productId/members/:userId',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.update
 );
 
 membersRouter.delete('/products/:productId/members/:userId',
     requireAuth,
-    requireRole(...TEAM_ROLES),
+    requireRole('project_manager'),
     controller.remove
 );

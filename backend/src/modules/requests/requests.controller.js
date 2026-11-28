@@ -6,8 +6,18 @@ export async function create(req, res) {
 }
 
 export async function listPublic(req, res) {
-    const requests = await service.listPublic(req.member.productId, req.query.search);
+    const requests = await service.listPublic(req.member.productId, req.query.search, req.user.id);
     res.json(requests);
+}
+
+export async function vote(req, res) {
+    const result = await service.vote(req.member.productId, req.params.requestId, req.user.id);
+    res.json(result);
+}
+
+export async function unvote(req, res) {
+    const result = await service.unvote(req.member.productId, req.params.requestId, req.user.id);
+    res.json(result);
 }
 
 export async function addAttachment(req, res) {

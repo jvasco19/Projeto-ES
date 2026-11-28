@@ -8,6 +8,7 @@ import MyRequests from './pages/personal/MyRequests.jsx'
 import RequestDetail from './pages/personal/RequestDetail.jsx'
 import SubmitRequest from './pages/personal/SubmitRequest.jsx'
 import Notifications from './pages/personal/Notifications.jsx'
+import PublicRequests from './pages/personal/PublicRequests.jsx'
 import Teams from './pages/product/Teams.jsx'
 import Requests from './pages/product/Requests.jsx'
 import Sprints from './pages/product/Sprints.jsx'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/me" element={<MyRequests />} />
         <Route path="/me/requests/:requestId" element={<RequestDetail />} />
         <Route path="/me/new/:productId" element={<SubmitRequest />} />
+        <Route path="/me/products/:productId" element={<PublicRequests />} />
         <Route path="/notifications" element={<Notifications />} />
 
         {/* Area do produto */}
@@ -36,7 +38,7 @@ export default function App() {
         <Route path="/p/:productId/teams" element={<Teams />} />
         <Route path="/p/:productId/backlog" element={<Backlog />} />
         <Route path="/p/:productId/sprints" element={<Sprints />} />
-        <Route path="/p/:productId/funcionalidades/:featureId" element={<FeatureDetail />} />
+        <Route path="/p/:productId/features/:featureId" element={<FeatureDetail />} />
 
         {/* Paginas ainda por integrar: mostram o aviso dentro da aplicacao */}
         <Route path="/me/*" element={<NotFound inApp />} />
