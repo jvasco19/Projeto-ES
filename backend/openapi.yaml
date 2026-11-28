@@ -797,6 +797,102 @@ paths:
                 error: Já existe uma milestone com esse nome
                 field: name
 
+  /products/{productId}/milestones/{milestoneId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: milestoneId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    patch:
+      tags: [Equipas]
+      summary: Edita o nome e/ou a data de entrega de uma milestone (US18)
+      description: >
+        Só para o Project Manager. Os campos que não forem enviados mantêm o valor atual.
+        Uma data nova não pode já ter passado; se a data não mudar, não é validada outra vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date
+            example:
+              dueDate: '2027-02-15'
+      responses:
+        '200':
+          description: Milestone atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome vazio, data inválida ou data que já passou
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Milestone não encontrada
+                field: null
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Equipas]
+      summary: Apaga uma milestone (US18)
+      description: Só para o Project Manager. As releases ligadas a ela ficam sem milestone.
+      responses:
+        '204':
+          description: Milestone apagada
+        '400':
+          description: Id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -1474,6 +1570,7 @@ components:
       example:
         status: in_review
 
+    # ---------- US18: produtos e milestones ----------
     CreateProductInput:
       type: object
       required: [name]

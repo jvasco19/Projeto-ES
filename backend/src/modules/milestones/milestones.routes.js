@@ -18,3 +18,15 @@ milestonesRouter.post('/products/:productId/milestones',
     requireRole('project_manager'),
     controller.create
 );
+
+milestonesRouter.patch('/products/:productId/milestones/:milestoneId',
+    requireAuth,
+    requireRole('project_manager'),
+    controller.update
+);
+
+milestonesRouter.delete('/products/:productId/milestones/:milestoneId',
+    requireAuth,
+    requireRole('project_manager'),
+    controller.remove
+);
