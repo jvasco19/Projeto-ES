@@ -71,6 +71,38 @@ export async function addAttachment(userId, requestId, file) {
     
 }
 
+// o pedido tem de existir ser público e pertencer ao produto do URL
+async function findPublicRequestOr404(productId, rawRequestId) {
+    const requestId = Number(rawRequestId);
+    if (!Number.isSafeInteger(requestId) || requestId <= 0) {
+        throw new HttpError(400, 'O id do pedido tem de ser um número inteiro', 'requestId');
+    }
+
+    const request = await repo.findPublicRequest(productId, requestId);
+    if (!request) throw new HttpError(404, 'Pedido não encontrado');
+    return request;
+}
+
+// votar duas vezes no mesmo pedido não dá erro o voto continua a ser só um
+export async function vote(productId, rawRequestId, userId) {
+    const request = await findPublicRequestOr404(productId, rawRequestId);
+    if (Number(request.authorId) === userId) {
+        throw new HttpError(409, 'Não podes votar no teu próprio pedido');
+    }
+
+    await repo.insertVote(request.id, userId);
+    const votes = await repo.countVotes(request.id);
+    return { requestId: request.id, votes, votedByMe: true };
+}
+
+// retirar um voto que não existe não dá erro
+export async function unvote(productId, rawRequestId, userId) {
+    const request = await findPublicRequestOr404(productId, rawRequestId);
+    await repo.deleteVote(request.id, userId);
+    const votes = await repo.countVotes(request.id);
+    return { requestId: request.id, votes, votedByMe: false };
+}
+
 // Ver um anexo o autor do pedido ou a equipa do produto
 export async function getAttachment(userId, rawAttachmentId) {
     const attachmentId = Number(rawAttachmentId);

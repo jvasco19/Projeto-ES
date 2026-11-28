@@ -10,6 +10,16 @@ export async function listPublic(req, res) {
     res.json(requests);
 }
 
+export async function vote(req, res) {
+    const result = await service.vote(req.member.productId, req.params.requestId, req.user.id);
+    res.json(result);
+}
+
+export async function unvote(req, res) {
+    const result = await service.unvote(req.member.productId, req.params.requestId, req.user.id);
+    res.json(result);
+}
+
 export async function addAttachment(req, res) {
     const attachment = await service.addAttachment(req.user.id, req.requestId, req.file);
     res.status(201).json(attachment);

@@ -85,6 +85,46 @@ export async function findAttachmentById(attachmentId) {
     return rows[0] ?? null;
 }
 
+// Pedido público do produto ou null se não existir ou for de outro produto ou for privado
+export async function findPublicRequest(productId, requestId) {
+    const { rows } = await query(
+        `SELECT id, author_id AS "authorId"
+         FROM feature_requests
+         WHERE id = $1 AND product_id = $2 AND is_public = true`,
+        [requestId, productId]
+    );
+    return rows[0] ?? null;
+}
+
+// regista o voto se o utilizador já tiver votado não faz nada
+export async function insertVote(requestId, userId) {
+    await query(
+        `INSERT INTO request_votes (request_id, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT (request_id, user_id) DO NOTHING`,
+        [requestId, userId]
+    );
+}
+
+// retira o voto se o utilizador não tiver votado não faz nada
+export async function deleteVote(requestId, userId) {
+    await query(
+        'DELETE FROM request_votes WHERE request_id = $1 AND user_id = $2',
+        [requestId, userId]
+    );
+}
+
+// número de votos do pedido
+export async function countVotes(requestId) {
+    const { rows } = await query(
+        `SELECT COUNT(*)::int AS total
+           FROM request_votes
+          WHERE request_id = $1`,
+        [requestId]
+    );
+    return rows[0].total;
+}
+
 // Papel do utilizador no produto ou null se não for membro
 export async function findMemberRole(productId, userId) {
     const { rows } = await query(
