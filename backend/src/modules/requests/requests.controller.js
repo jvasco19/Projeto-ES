@@ -6,7 +6,7 @@ export async function create(req, res) {
 }
 
 export async function listPublic(req, res) {
-    const requests = await service.listPublic(req.member.productId, req.query.search);
+    const requests = await service.listPublic(req.member.productId, req.query.search, req.user.id);
     res.json(requests);
 }
 

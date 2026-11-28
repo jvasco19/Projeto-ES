@@ -37,9 +37,9 @@ export async function create(productId, authorId, data = {}) {
     });
 }
 
-export async function listPublic(productId, search) {
+export async function listPublic(productId, search, userId) {
     const text = typeof search === 'string' ? search.trim() : '';
-    return repo.findPublic(productId, text || null);
+    return repo.findPublic(productId, text || null, userId);
 }
 
 // Corrige o nome original do ficheiro

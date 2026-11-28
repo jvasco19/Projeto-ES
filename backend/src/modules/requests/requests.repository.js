@@ -37,17 +37,19 @@ export async function create({productId, authorId, title, description, category,
     }
 }
 
-// encontrar pedidos públicos
-export async function findPublic(productId, search) {
+// encontrar pedidos públicos com o número de votos e se o utilizador votou em cada um
+export async function findPublic(productId, search, userId) {
     const { rows } = await query(
-        `SELECT id, title, status, created_at AS "createdAt"
-         FROM feature_requests
-         WHERE product_id = $1
-         AND is_public = true
-         AND ($2::text IS NULL OR title ILIKE '%' || $2 || '%')
-         ORDER BY created_at DESC
+        `SELECT r.id, r.title, r.status, r.created_at AS "createdAt",
+                (SELECT COUNT(*) FROM request_votes v WHERE v.request_id = r.id)::int AS "votes",
+                EXISTS (SELECT 1 FROM request_votes v WHERE v.request_id = r.id AND v.user_id = $3) AS "votedByMe"
+         FROM feature_requests r
+         WHERE r.product_id = $1
+         AND r.is_public = true
+         AND ($2::text IS NULL OR r.title ILIKE '%' || $2 || '%')
+         ORDER BY r.created_at DESC
          LIMIT 20`,
-         [productId, search]
+         [productId, search, userId]
     );
     return rows;
 }
