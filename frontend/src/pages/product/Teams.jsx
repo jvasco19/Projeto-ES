@@ -9,6 +9,7 @@ import { Empty, PageHeader, PageLoader } from '../../components/ui.jsx'
 import { useApi } from '../../data/useApi.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
+import { formatDate } from '../../lib/format.js'
 import { notifyError, notifySuccess } from '../../lib/feedback.jsx'
 import { can, roleLabels } from '../../lib/labels.js'
 import { useProduct } from '../../lib/useProduct.js'
@@ -32,7 +33,8 @@ function InviteModal({ onClose, teams, onInvite }) {
   const [loading, setLoading] = useState(false)
 
   async function send() {
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) return setErrors({ email: 'Introduz um email válido' })
+    const email = form.email.trim()
+    if (!email.includes('@') || email.includes(' ')) return setErrors({ email: 'Introduz um email válido' })
     setLoading(true)
     try {
       await onInvite(form)
@@ -91,6 +93,42 @@ function TeamModal({ team, onClose, onSave }) {
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>Cancelar</Button>
           <Button loading={loading} onClick={save}>{team ? 'Guardar' : 'Criar equipa'}</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
+// nova milestone ou editar uma existente (nome e data de entrega)
+function MilestoneModal({ milestone, onClose, onSave }) {
+  const [form, setForm] = useState(milestone ? { name: milestone.name, dueDate: milestone.dueDate } : { name: '', dueDate: '' })
+  const [errors, setErrors] = useState({})
+  const [loading, setLoading] = useState(false)
+
+  async function save() {
+    if (!form.name.trim()) return setErrors({ name: 'Dá um nome à milestone' })
+    if (!form.dueDate) return setErrors({ dueDate: 'Escolhe a data de entrega' })
+    setLoading(true)
+    try {
+      await onSave({ name: form.name.trim(), dueDate: form.dueDate })
+      onClose()
+    } catch (e) {
+      showError(e, (field, message) => setErrors({ [field]: message }))
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} title={milestone ? `Editar ${milestone.name}` : 'Nova milestone'}>
+      <Stack>
+        <TextInput label="Nome" withAsterisk placeholder="Ex.: Entrega da versão 3" value={form.name} error={errors.name} data-autofocus
+          onChange={(e) => { setForm({ ...form, name: e.currentTarget.value }); setErrors({}) }} />
+        <TextInput label="Data de entrega" withAsterisk type="date" value={form.dueDate} error={errors.dueDate}
+          description="Data acordada com o cliente."
+          onChange={(e) => { setForm({ ...form, dueDate: e.currentTarget.value }); setErrors({}) }} />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>Cancelar</Button>
+          <Button loading={loading} onClick={save}>{milestone ? 'Guardar' : 'Criar milestone'}</Button>
         </Group>
       </Stack>
     </Modal>
@@ -165,18 +203,21 @@ export default function Teams() {
   const { role, productId } = useProduct()
   const teamsApi = useApi(`/products/${productId}/teams`)
   const membersApi = useApi(`/products/${productId}/members`)
+  const milestonesApi = useApi(`/products/${productId}/milestones`)
   // Depois de cada alteração os dados são recarregados para aqui (sem voltar a mostrar o "a carregar")
   const [teams, setTeams] = useState(null)
   const [members, setMembers] = useState(null)
-  const [modal, setModal] = useState(params.get('criar') ?? null) // 'equipa' | 'convite' | team
-  const [tab, setTab] = useState(params.get('criar') === 'convite' ? 'membros' : 'equipas')
+  const [milestones, setMilestones] = useState(null)
+  const [modal, setModal] = useState(params.get('criar') ?? null) // 'equipa' | 'convite' | 'milestone' | team
+  const [editingMilestone, setEditingMilestone] = useState(null)
+  const [tab, setTab] = useState({ convite: 'membros', milestone: 'milestones' }[params.get('criar')] ?? 'equipas')
 
-  if (teamsApi.loading || membersApi.loading) return <PageLoader rows={1} />
-  if (teamsApi.error || membersApi.error) {
+  if (teamsApi.loading || membersApi.loading || milestonesApi.loading) return <PageLoader rows={1} />
+  if (teamsApi.error || membersApi.error || milestonesApi.error) {
     return (
       <Card>
         <Empty icon="lock" title="Não foi possível carregar as equipas"
-          description={(teamsApi.error ?? membersApi.error).message} />
+          description={(teamsApi.error ?? membersApi.error ?? milestonesApi.error).message} />
       </Card>
     )
   }
@@ -186,14 +227,17 @@ export default function Teams() {
   const memberList = members ?? membersApi.data
   // As pessoas de cada equipa vêm da lista de membros (teamId), para os dois separadores mostrarem o mesmo
   const teamList = (teams ?? teamsApi.data).map((t) => ({ ...t, members: memberList.filter((m) => m.teamId === t.id) }))
+  const milestoneList = milestones ?? milestonesApi.data
 
   async function refresh() {
-    const [newTeams, newMembers] = await Promise.all([
+    const [newTeams, newMembers, newMilestones] = await Promise.all([
       api(`/products/${productId}/teams`),
       api(`/products/${productId}/members`),
+      api(`/products/${productId}/milestones`),
     ])
     setTeams(newTeams)
     setMembers(newMembers)
+    setMilestones(newMilestones)
   }
 
   // Executa uma alteração na API, recarrega os dados e mostra a mensagem de sucesso
@@ -236,6 +280,7 @@ export default function Teams() {
         <Tabs.List mb="lg">
           <Tabs.Tab value="equipas" leftSection={<Icon name="groups" size={18} />}>Equipas ({teamList.length})</Tabs.Tab>
           <Tabs.Tab value="membros" leftSection={<Icon name="badge" size={18} />}>Membros ({memberList.length})</Tabs.Tab>
+          <Tabs.Tab value="milestones" leftSection={<Icon name="flag" size={18} />}>Milestones ({milestoneList.length})</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="equipas">
@@ -320,6 +365,50 @@ export default function Teams() {
             </Table.ScrollContainer>
           </Card>
         </Tabs.Panel>
+
+        <Tabs.Panel value="milestones">
+          <Card padding={0}>
+            {canManage && (
+              <Group justify="flex-end" p="md">
+                <Button size="xs" leftSection={<Icon name="add" size={16} />} onClick={() => setModal('milestone')}>Nova milestone</Button>
+              </Group>
+            )}
+            {milestoneList.length === 0 ? (
+              <Empty icon="flag" title="Ainda não há milestones" />
+            ) : (
+              <Table verticalSpacing="sm">
+                <Table.Thead>
+                  <Table.Tr><Table.Th>Milestone</Table.Th><Table.Th w={180}>Data de entrega</Table.Th>{canManage && <Table.Th w={50} />}</Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {milestoneList.map((ms) => (
+                    <Table.Tr key={ms.id}>
+                      <Table.Td><Text size="sm">{ms.name}</Text></Table.Td>
+                      <Table.Td><Text size="sm">{formatDate(ms.dueDate)}</Text></Table.Td>
+                      {canManage && (
+                        <Table.Td>
+                          <Menu position="bottom-end">
+                            <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`Ações da milestone ${ms.name}`}><Icon name="more_vert" size={18} /></ActionIcon></Menu.Target>
+                            <Menu.Dropdown>
+                              <Menu.Item leftSection={<Icon name="edit" size={18} />} onClick={() => setEditingMilestone(ms)}>Editar</Menu.Item>
+                              <Menu.Item color="red" leftSection={<Icon name="delete" size={18} />}
+                                onClick={() => change(
+                                  () => api(`/products/${productId}/milestones/${ms.id}`, { method: 'DELETE' }),
+                                  `Milestone "${ms.name}" apagada.`
+                                )}>
+                                Apagar
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        </Table.Td>
+                      )}
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            )}
+          </Card>
+        </Tabs.Panel>
       </Tabs>
 
       {modal === 'convite' && (
@@ -328,6 +417,22 @@ export default function Teams() {
             const member = await api(`/products/${productId}/members`, { method: 'POST', body: form })
             await refresh()
             notifySuccess(`${member.name} foi adicionado ao produto.`)
+          }} />
+      )}
+      {modal === 'milestone' && (
+        <MilestoneModal onClose={closeModal}
+          onSave={async (form) => {
+            await api(`/products/${productId}/milestones`, { method: 'POST', body: form })
+            await refresh()
+            notifySuccess(`Milestone "${form.name}" criada.`)
+          }} />
+      )}
+      {editingMilestone && (
+        <MilestoneModal milestone={editingMilestone} onClose={() => setEditingMilestone(null)}
+          onSave={async (form) => {
+            await api(`/products/${productId}/milestones/${editingMilestone.id}`, { method: 'PATCH', body: form })
+            await refresh()
+            notifySuccess('Milestone atualizada.')
           }} />
       )}
       {(modal === 'equipa' || typeof modal === 'object') && modal && (
@@ -345,4 +450,4 @@ export default function Teams() {
       )}
     </>
   )
-} 
+}
