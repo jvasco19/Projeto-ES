@@ -67,6 +67,8 @@ export async function detail(productId, userId, role, rawFeatureId) {
         teamName: feature.teamName,
         assigneeId: feature.assigneeId,
         assigneeName: feature.assigneeName,
+        releaseName: feature.releaseName,
+        releaseObjective: feature.releaseObjective,
         nextStatus: nextStatus(feature.status),
         allowedStatuses: allowedStatuses(feature.status),
         canChangeStatus: canChange(role, myTeamId, feature),

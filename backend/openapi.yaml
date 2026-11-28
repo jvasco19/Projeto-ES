@@ -1936,6 +1936,16 @@ components:
           description: Mudanças de estado, da mais recente para a mais antiga
           items:
             $ref: '#/components/schemas/FeatureStatusChange'
+        releaseName:
+          type: string
+          nullable: true
+          description: Release a que a funcionalidade pertence (US10), ou null
+          example: v3.0
+        releaseObjective:
+          type: string
+          nullable: true
+          description: Objetivo da release (US10, CA2)
+          example: Relatórios e exportações para clientes empresariais
 
     ChangeFeatureStatusInput:
       type: object
@@ -2050,8 +2060,17 @@ components:
             title:
               type: string
               example: Relatório de comissões por vendedor
+            description:
+              type: string
+              description: Texto do pedido original (US10, CA1)
             status:
               $ref: '#/components/schemas/RequestStatus'
+            authorName:
+              type: string
+              example: Marta Lopes
+            createdAt:
+              type: string
+              format: date-time
         story:
           allOf:
             - $ref: '#/components/schemas/UserStory'
