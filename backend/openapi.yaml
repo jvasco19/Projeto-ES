@@ -800,7 +800,7 @@ paths:
   /products/{productId}/backlog:
     get:
       tags: [Funcionalidades]
-      summary: Product Backlog do produto (US07)
+      summary: Product Backlog do produto
       description: >
         Todas as funcionalidades do produto, pela ordem do backlog (position).
         Inclui o impacto, o esforço e a prioridade calculada (impacto x 10 / esforço).
@@ -825,7 +825,7 @@ paths:
   /products/{productId}/features:
     post:
       tags: [Funcionalidades]
-      summary: Cria uma funcionalidade no fim do backlog (US07)
+      summary: Cria uma funcionalidade no fim do backlog
       description: >
         Só para o Product Manager. A funcionalidade começa em "todo", fica na última
         posição do backlog e a criação fica registada no histórico de estados.
@@ -863,7 +863,7 @@ paths:
   /products/{productId}/features/{featureId}/priority:
     patch:
       tags: [Funcionalidades]
-      summary: Altera o impacto e/ou o esforço e reordena o backlog pela prioridade (US07)
+      summary: Altera o impacto e/ou o esforço e reordena o backlog pela prioridade
       description: >
         Só para o Product Manager. Pode enviar só o impacto, só o esforço ou os dois.
         A prioridade é recalculada pela base de dados e o backlog é reordenado da maior
@@ -905,7 +905,7 @@ paths:
   /products/{productId}/features/{featureId}/position:
     patch:
       tags: [Funcionalidades]
-      summary: Move a funcionalidade para outra posição do backlog (US07)
+      summary: Move a funcionalidade para outra posição do backlog
       description: >
         Só para o Product Manager. As outras funcionalidades andam uma posição para
         abrir espaço. Uma posição maior que o tamanho do backlog põe-na no fim.
