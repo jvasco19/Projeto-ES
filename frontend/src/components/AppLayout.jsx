@@ -23,12 +23,12 @@ const productNav = [
   { to: '', label: 'Visão geral', icon: 'space_dashboard' },
   { to: '/requests', label: 'Pedidos', icon: 'inbox', needs: 'triage' },
   { to: '/backlog', label: 'Backlog', icon: 'format_list_numbered' },
-  { to: '/requisitos', label: 'Requisitos', icon: 'description' },
+  { to: '/requirements', label: 'Requisitos', icon: 'description' },
   { to: '/sprints', label: 'Sprints', icon: 'view_kanban' },
   { to: '/roadmap', label: 'Roadmap', icon: 'timeline' },
-  { to: '/metricas', label: 'Métricas', icon: 'monitoring' },
+  { to: '/metrics', label: 'Métricas', icon: 'monitoring' },
   { to: '/teams', label: 'Equipas', icon: 'groups' },
-  { to: '/definicoes', label: 'Definições', icon: 'settings' },
+  { to: '/settings', label: 'Definições', icon: 'settings' },
 ]
 
 // Opções do botão "Criar", de acordo com o papel no produto
@@ -43,9 +43,9 @@ const createOptions = [
 
 // Páginas que um produto novo ainda não tem
 const emptySections = {
-  pedidos: { icon: 'inbox', title: 'Ainda não há pedidos', text: 'Partilha o link do produto com os clientes para receberes os primeiros pedidos.', cta: 'Ver o link', to: '/definicoes' },
-  requisitos: { icon: 'description', title: 'Ainda não há User Stories', text: 'As User Stories são criadas a partir das funcionalidades do backlog.' },
-  metricas: { icon: 'monitoring', title: 'Ainda não existem dados para apresentar', text: 'As métricas aparecem quando houver pedidos e sprints.', cta: 'Ver o roadmap', to: '/roadmap' },
+  requests: { icon: 'inbox', title: 'Ainda não há pedidos', text: 'Partilha o link do produto com os clientes para receberes os primeiros pedidos.', cta: 'Ver o link', to: '/settings' },
+  requirements: { icon: 'description', title: 'Ainda não há User Stories', text: 'As User Stories são criadas a partir das funcionalidades do backlog.' },
+  metrics: { icon: 'monitoring', title: 'Ainda não existem dados para apresentar', text: 'As métricas aparecem quando houver pedidos e sprints.', cta: 'Ver o roadmap', to: '/roadmap' },
 }
 
 function ContextAvatar({ name, color = 'stream', personal }) {
@@ -178,7 +178,7 @@ function useSpotlightActions(product, navigate) {
     },
     {
       group: 'Funcionalidades',
-      actions: backlog.map((f) => ({ id: f.id, label: f.title, description: `${f.id} · ${p.name}`, leftSection: <Icon name="task_alt" size={20} />, onClick: go(`${base}/funcionalidades/${f.id}`) })),
+      actions: backlog.map((f) => ({ id: f.id, label: f.title, description: `${f.id} · ${p.name}`, leftSection: <Icon name="task_alt" size={20} />, onClick: go(`${base}/features/${f.id}`) })),
     },
     {
       group: 'Pedidos',

@@ -34,7 +34,7 @@ export default function App() {
         <Route path="/p/:productId/requests" element={<Requests />} />
         <Route path="/p/:productId/teams" element={<Teams />} />
         <Route path="/p/:productId/sprints" element={<Sprints />} />
-        <Route path="/p/:productId/funcionalidades/:featureId" element={<FeatureDetail />} />
+        <Route path="/p/:productId/features/:featureId" element={<FeatureDetail />} />
 
         {/* Paginas ainda por integrar: mostram o aviso dentro da aplicacao */}
         <Route path="/me/*" element={<NotFound inApp />} />

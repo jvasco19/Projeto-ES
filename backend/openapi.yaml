@@ -695,6 +695,580 @@ paths:
                 error: O estado foi alterado por outra pessoa. Atualiza a página.
                 field: null
 
+  /products/{productId}/features/{featureId}/story:
+    get:
+      tags: [User Stories]
+      summary: User Story e critérios de aceitação de uma funcionalidade (US16)
+      description: >
+        Devolve o pedido de origem (se existir), a User Story (null se ainda não tiver)
+        e os critérios de aceitação por ordem. Só para a equipa do produto (não clientes).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      responses:
+        '200':
+          description: User Story da funcionalidade
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          $ref: '#/components/responses/InvalidFeatureId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+    post:
+      tags: [User Stories]
+      summary: Cria a User Story da funcionalidade (US16)
+      description: >
+        Só para o Product Manager. Se a funcionalidade veio de um pedido, o pedido
+        tem de estar aprovado (approved, planned ou delivered) (CA3). Papel, objetivo
+        e benefício são obrigatórios (CA4). A User Story fica ligada ao pedido através
+        da funcionalidade (CA1). Cada funcionalidade só tem uma User Story.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryInput'
+      responses:
+        '201':
+          description: User Story criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Campo em falta, demasiado longo ou id inválido (CA4)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o benefício
+                field: benefit
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+        '409':
+          description: O pedido de origem ainda não foi aprovado (CA3) ou a funcionalidade já tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O pedido tem de estar aprovado para criar a User Story
+                field: null
+    patch:
+      tags: [User Stories]
+      summary: Edita a User Story (US16)
+      description: Só para o Product Manager. Os campos que não forem enviados mantêm o valor atual.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryUpdateInput'
+            example:
+              goal: ver as comissões de cada vendedor por mês
+      responses:
+        '200':
+          description: User Story atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Campo enviado vazio ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o papel
+                field: role
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade não existe ou ainda não tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Esta funcionalidade ainda não tem User Story
+                field: null
+
+  /products/{productId}/features/{featureId}/story/criteria:
+    post:
+      tags: [User Stories]
+      summary: Adiciona um critério de aceitação no fim da lista (US16, CA2)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriterionInput'
+      responses:
+        '201':
+          description: Critério adicionado; devolve a User Story com todos os critérios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Texto em falta ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Preenche o critério
+                field: text
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade não existe ou ainda não tem User Story
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{productId}/features/{featureId}/story/criteria/{criterionId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - $ref: '#/components/parameters/FeatureId'
+      - name: criterionId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    patch:
+      tags: [User Stories]
+      summary: Edita o texto de um critério de aceitação (US16, CA2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriterionInput'
+      responses:
+        '200':
+          description: Critério atualizado; devolve a User Story com todos os critérios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Texto em falta, demasiado longo ou id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade, a User Story ou o critério não existem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Critério não encontrado
+                field: null
+    delete:
+      tags: [User Stories]
+      summary: Remove um critério de aceitação (US16, CA2)
+      responses:
+        '200':
+          description: Critério removido; devolve a User Story com os critérios que restam
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryResult'
+        '400':
+          description: Id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A funcionalidade, a User Story ou o critério não existem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Critério não encontrado
+                field: null
+
+  /products/{productId}/triage:
+    get:
+      tags: [Análise de pedidos]
+      summary: Lista os pedidos do produto para análise (US21)
+      description: >
+        Todos os pedidos do produto, do mais recente para o mais antigo, com os anexos,
+        as etiquetas e as versões anteriores da descrição. A pesquisa e os filtros por
+        estado são feitos no frontend. Só para o Product Manager.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Pedidos do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriageRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/triage/{requestId}/review:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Abre um pedido para análise (US21)
+      description: >
+        Se o pedido estiver submitted, passa a in_review e a mudança fica registada
+        (o cliente recebe a notificação). Noutro estado, devolve o pedido sem o alterar.
+      responses:
+        '200':
+          description: Pedido (em análise, se estava submetido)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um numero inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    patch:
+      tags: [Análise de pedidos]
+      summary: Edita a descrição, a categoria e a visibilidade de um pedido (US21, CA1)
+      description: >
+        Os campos que não forem enviados mantêm o valor atual. Se a descrição mudar,
+        a anterior fica guardada como versão (aparece em versions).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageUpdateInput'
+            example:
+              category: reports
+              isPublic: true
+      responses:
+        '200':
+          description: Pedido atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Descrição vazia, categoria inválida ou visibilidade que não é true/false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Escolhe uma categoria válida
+                field: category
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    put:
+      tags: [Análise de pedidos]
+      summary: Substitui as etiquetas do pedido (US21, CA1)
+      description: >
+        A lista enviada passa a ser a lista completa de etiquetas do pedido (lista vazia
+        remove todas). Etiquetas repetidas ou vazias são ignoradas. As etiquetas novas
+        ficam disponíveis para os outros pedidos do produto.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageTagsInput'
+      responses:
+        '200':
+          description: Etiquetas guardadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Não é uma lista, mais de 10 etiquetas ou etiqueta com mais de 30 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No máximo 10 etiquetas por pedido
+                field: tags
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+
+  /products/{productId}/triage/{requestId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Aprova um pedido em análise (US21, CA2)
+      description: >
+        O pedido passa a approved e fica disponível para entrar no Product Backlog.
+        A mudança fica registada e o cliente recebe a notificação.
+      responses:
+        '200':
+          description: Pedido aprovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um numero inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido não está em análise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Só é possível aprovar um pedido que está em análise
+                field: null
+
+  /products/{productId}/triage/{requestId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Análise de pedidos]
+      summary: Rejeita um pedido em análise com motivo (US21, CA3 e CA4)
+      description: >
+        O pedido passa a rejected e o motivo fica visível para o cliente (CA3).
+        Sem motivo, o pedido mantém o estado (CA4).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRejectInput'
+      responses:
+        '200':
+          description: Pedido rejeitado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageRequest'
+        '400':
+          description: Motivo em falta (CA4)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Indica o motivo da rejeição. O cliente vai vê-lo no pedido.
+                field: reason
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Product Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: O pedido não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido não está em análise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Só é possível rejeitar um pedido que está em análise
+                field: null
+
   /products:
     post:
       tags: [Produtos]
@@ -1570,6 +2144,233 @@ components:
       example:
         status: in_review
 
+    StoryInput:
+      type: object
+      required: [role, goal, benefit]
+      properties:
+        role:
+          type: string
+          maxLength: 500
+          description: Como...
+          example: gestor comercial
+        goal:
+          type: string
+          maxLength: 500
+          description: Quero...
+          example: ver as comissões por vendedor
+        benefit:
+          type: string
+          maxLength: 500
+          description: Para...
+          example: pagar a cada um o valor certo
+
+    StoryUpdateInput:
+      type: object
+      description: Só os campos enviados são alterados; não podem ficar vazios
+      properties:
+        role:
+          type: string
+          maxLength: 500
+        goal:
+          type: string
+          maxLength: 500
+        benefit:
+          type: string
+          maxLength: 500
+
+    CriterionInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          maxLength: 500
+          example: Dado um mês, quando abro o relatório, então vejo cada vendedor.
+
+    AcceptanceCriterion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '4'
+        position:
+          type: integer
+          description: Ordem na lista (pode ter falhas depois de remover critérios)
+          example: 1
+        text:
+          type: string
+          example: Dado um mês, quando abro o relatório, então vejo cada vendedor.
+
+    UserStory:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '7'
+        role:
+          type: string
+          example: gestor comercial
+        goal:
+          type: string
+          example: ver as comissões por vendedor
+        benefit:
+          type: string
+          example: pagar a cada um o valor certo
+        state:
+          type: string
+          enum: [draft, confirmed]
+          description: draft é um rascunho gerado por IA ainda por confirmar (US17)
+          example: confirmed
+        aiGenerated:
+          type: boolean
+          example: false
+        createdBy:
+          type: string
+          example: Inês Carvalho
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StoryResult:
+      type: object
+      properties:
+        request:
+          type: object
+          nullable: true
+          description: Pedido de origem da funcionalidade, ou null se foi criada pela equipa
+          properties:
+            id:
+              type: string
+              example: '6'
+            title:
+              type: string
+              example: Relatório de comissões por vendedor
+            status:
+              $ref: '#/components/schemas/RequestStatus'
+        story:
+          allOf:
+            - $ref: '#/components/schemas/UserStory'
+          nullable: true
+          description: null se a funcionalidade ainda não tem User Story
+        criteria:
+          type: array
+          description: Critérios de aceitação por ordem
+          items:
+            $ref: '#/components/schemas/AcceptanceCriterion'
+
+    TriageRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '8'
+        title:
+          type: string
+          example: Autenticação com chave de segurança
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        category:
+          allOf:
+            - $ref: '#/components/schemas/RequestCategory'
+          nullable: true
+        isPublic:
+          type: boolean
+          description: Se o pedido é visível para os outros clientes
+          example: false
+        rejectionReason:
+          type: string
+          nullable: true
+          description: Motivo da rejeição (só quando o estado é rejected)
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        authorName:
+          type: string
+          example: Ana Rodrigues
+        statusChangedAt:
+          type: string
+          format: date-time
+          description: Data da última mudança de estado (para os dias parados no estado)
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              requestId:
+                type: string
+                example: '8'
+              id:
+                type: string
+                example: '2'
+              fileName:
+                type: string
+                example: politica-seguranca.pdf
+        tags:
+          type: array
+          items:
+            type: string
+          example: [segurança, login]
+        versions:
+          type: array
+          description: Versões anteriores da descrição, da mais recente para a mais antiga (sem a atual)
+          items:
+            type: object
+            properties:
+              requestId:
+                type: string
+                example: '8'
+              version:
+                type: integer
+                example: 1
+              title:
+                type: string
+              description:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+              editedBy:
+                type: string
+                example: Ana Rodrigues
+
+    TriageUpdateInput:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Não pode ficar vazia; a anterior fica guardada como versão
+        category:
+          allOf:
+            - $ref: '#/components/schemas/RequestCategory'
+          nullable: true
+        isPublic:
+          type: boolean
+
+    TriageTagsInput:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 30
+          example: [segurança, login]
+
+    TriageRejectInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          example: Já existe uma funcionalidade planeada que resolve este problema.
     # ---------- US18: produtos e milestones ----------
     CreateProductInput:
       type: object
