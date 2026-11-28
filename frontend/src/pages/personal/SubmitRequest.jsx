@@ -23,7 +23,7 @@ const categories = [
   { value: 'security', label: 'Segurança' },
 ]
 
-// Passo 1: pesquisar pedidos existentes e votar (US14)
+// Passo 1: pesquisar pedidos existentes e votar
 function SearchStep({ requests, onVote, onCreate }) {
   const [query, setQuery] = useState('')
   const results = requests.filter((r) => r.title.toLowerCase().includes(query.trim().toLowerCase()))
@@ -84,7 +84,7 @@ function SearchStep({ requests, onVote, onCreate }) {
   )
 }
 
-// Passo 2: formulário do pedido (US13)
+// Passo 2: formulário do pedido
 function FormStep({ productId, initialTitle, onBack, onSubmitted }) {
   const [form, setForm] = useState({ title: initialTitle, description: '', category: null })
   const [files, setFiles] = useState([])
