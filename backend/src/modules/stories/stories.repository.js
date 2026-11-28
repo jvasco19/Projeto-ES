@@ -3,9 +3,11 @@ import { query } from "../../db/pool.js";
 // funcionalidade do produto com o pedido de origem (se existir)
 export async function findFeature(productId, featureId) {
     const { rows } = await query(
-        `SELECT f.id, f.request_id AS "requestId", r.title AS "requestTitle", r.status AS "requestStatus"
+        `SELECT f.id, f.request_id AS "requestId", r.title AS "requestTitle", r.status AS "requestStatus",
+                r.description AS "requestDescription", r.created_at AS "requestCreatedAt", a.name AS "requestAuthorName"
          FROM features f
          LEFT JOIN feature_requests r ON r.id = f.request_id
+         LEFT JOIN users a ON a.id = r.author_id
          WHERE f.id = $1 AND f.product_id = $2`,
         [featureId, productId]
     );

@@ -31,7 +31,14 @@ async function result(feature) {
     const story = await repo.findStory(feature.id);
     return {
         request: feature.requestId
-            ? { id: feature.requestId, title: feature.requestTitle, status: feature.requestStatus }
+            ? {
+                id: feature.requestId,
+                title: feature.requestTitle,
+                description: feature.requestDescription,
+                status: feature.requestStatus,
+                authorName: feature.requestAuthorName,
+                createdAt: feature.requestCreatedAt,
+            }
             : null,
         story,
         criteria: story ? await repo.findCriteria(story.id) : [],

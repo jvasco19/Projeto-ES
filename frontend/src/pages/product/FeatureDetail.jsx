@@ -577,6 +577,9 @@ export default function FeatureDetail() {
     storyPoints: f.storyPoints,
     team: f.teamName,
     assignee: f.assigneeId,
+    release: f.releaseName,
+    releaseObjective: f.releaseObjective,
+    sprint: null,
     ...overrides,
     status: f.status,
     allowedStatuses: f.allowedStatuses,
@@ -587,6 +590,14 @@ export default function FeatureDetail() {
   const storyData = storyUpdated ?? storyApi.data ?? { request: null, story: null, criteria: [] }
   feature.userStory = storyData.story
   feature.criteria = storyData.criteria
+  const origin = storyData.request
+  feature.request = origin && {
+    id: `R-${origin.id}`,
+    requestId: origin.id,
+    text: origin.description,
+    customer: origin.authorName,
+    submittedAt: formatDate(origin.createdAt),
+  }
   const hasStory = Boolean(storyData.story)
   const nextStatus = f.nextStatus
   const canEdit = can(role, 'editFeature')
