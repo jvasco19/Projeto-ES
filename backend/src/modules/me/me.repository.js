@@ -51,13 +51,16 @@ export async function findStatusChangesByRequest(requestID) {
     return rows;
 }
 
-export async function findNotificationsForAuthor(userID) {
+export async function findNotificationsForUser(userID) {
     const { rows } = await query(
         `SELECT c.id, c.request_id AS "requestId", r.title AS "requestTitle",
+        r.product_id AS "productId", r.author_id = $1 AS "isAuthor",
         c.to_status AS "status", c.changed_at AS "createdAt"
         FROM request_status_changes c
         JOIN feature_requests r ON r.id = c.request_id
-        WHERE r.author_id = $1 AND c.changed_by <> $1
+        LEFT JOIN request_votes v ON v.request_id = r.id AND v.user_id = $1
+        WHERE c.changed_by <> $1
+        AND (r.author_id = $1 OR (r.is_public = true AND c.changed_at >= v.created_at))
         ORDER BY c.changed_at DESC, c.id DESC
         LIMIT 50`,
         [userID]

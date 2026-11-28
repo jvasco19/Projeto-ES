@@ -188,11 +188,16 @@ export default function SubmitRequest() {
 
   const list = requests ?? data.requests
 
-  function vote(id) {
+  async function vote(id) {
     const target = list.find((r) => r.id === id)
     if (target.votedByMe) return notifyInfo('O teu voto já está registado neste pedido.', 'Já votaste')
-    setRequests(list.map((r) => (r.id === id ? { ...r, votes: (r.votes ?? 0) + 1, votedByMe: true } : r)))
-    notifySuccess('Voto registado. Vais ser notificado quando o estado mudar.')
+    try {
+      const result = await api(`/products/${productId}/requests/${id}/vote`, { method: 'POST' })
+      setRequests(list.map((r) => (r.id === id ? { ...r, votes: result.votes, votedByMe: result.votedByMe } : r)))
+      notifySuccess('Voto registado. Vais ser notificado quando o estado mudar.')
+    } catch (e) {
+      notifyError(e.message)
+    }
   }
 
   return (

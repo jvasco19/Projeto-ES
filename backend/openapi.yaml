@@ -202,7 +202,8 @@ paths:
       summary: Lista os pedidos públicos do produto (passo de pesquisa)
       description: >
         Usado antes de submeter, para o cliente ver se já existe um pedido parecido.
-        Devolve no máximo 20 pedidos, do mais recente para o mais antigo.
+        Devolve no máximo 20 pedidos, do mais recente para o mais antigo, cada um
+        com o número de votos e se o utilizador com sessão já votou nele.
       parameters:
         - $ref: '#/components/parameters/ProductId'
         - name: search
@@ -227,6 +228,104 @@ paths:
           $ref: '#/components/responses/NotCustomer'
         '404':
           $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/requests/{requestId}/vote:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 8
+    post:
+      tags: [Pedidos]
+      summary: Vota num pedido público
+      description: >
+        Só para clientes do produto. Cada cliente tem no máximo um voto por pedido:
+        votar outra vez não dá erro e não conta um segundo voto. Não é possível votar
+        no próprio pedido. A partir do voto, o cliente recebe as mudanças de estado
+        do pedido nas notificações.
+      responses:
+        '200':
+          description: Voto registado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResult'
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um número inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          description: >
+            O produto não existe ou o utilizador não é membro, ou o pedido não existe,
+            é privado ou pertence a outro produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
+        '409':
+          description: O pedido é do próprio cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Não podes votar no teu próprio pedido
+                field: null
+    delete:
+      tags: [Pedidos]
+      summary: Retira o voto num pedido público
+      description: >
+        Só para clientes do produto. Retirar um voto que não existe não dá erro.
+      responses:
+        '200':
+          description: Voto retirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResult'
+              example:
+                requestId: '8'
+                votes: 1
+                votedByMe: false
+        '400':
+          description: Id do pedido inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O id do pedido tem de ser um número inteiro
+                field: requestId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotCustomer'
+        '404':
+          description: >
+            O produto não existe ou o utilizador não é membro, ou o pedido não existe,
+            é privado ou pertence a outro produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Pedido não encontrado
+                field: null
 
   /me/requests:
     get:
@@ -304,8 +403,9 @@ paths:
       tags: [Área do cliente]
       summary: Notificações das mudanças de estado dos pedidos do utilizador
       description: >
-        Mudanças de estado nos pedidos do utilizador feitas por outra pessoa,
-        da mais recente para a mais antiga (no máximo 50).
+        Mudanças de estado feitas por outra pessoa nos pedidos do utilizador e nos
+        pedidos públicos em que votou (só as feitas depois do voto), da mais recente
+        para a mais antiga (no máximo 50). O campo reason indica o motivo.
       responses:
         '200':
           description: Notificações do utilizador
@@ -1777,6 +1877,29 @@ components:
         createdAt:
           type: string
           format: date-time
+        votes:
+          type: integer
+          description: Número de votos do pedido
+          example: 3
+        votedByMe:
+          type: boolean
+          description: Se o utilizador com sessão já votou neste pedido
+          example: false
+
+    VoteResult:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: '8'
+        votes:
+          type: integer
+          description: Número de votos do pedido depois da alteração
+          example: 2
+        votedByMe:
+          type: boolean
+          description: true depois de votar, false depois de retirar o voto
+          example: true
 
     MyRequest:
       type: object
@@ -1877,6 +2000,10 @@ components:
         type:
           type: string
           enum: [status]
+        reason:
+          type: string
+          enum: [author, vote]
+          description: author se o utilizador é o autor do pedido, vote se votou nele
         requestId:
           type: string
           example: '6'
@@ -1890,6 +2017,9 @@ components:
           format: date-time
         link:
           type: string
+          description: >
+            Para o autor, o detalhe do pedido (/me/requests/{id}); para quem votou,
+            os pedidos públicos do produto (/me/products/{productId})
           example: /me/requests/6
 
     TeamInput:
