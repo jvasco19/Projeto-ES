@@ -16,6 +16,8 @@ tags:
   - name: Equipas
   - name: Membros
   - name: Funcionalidades
+  - name: User Stories
+  - name: Análise de pedidos
 
 paths:
   /health:
