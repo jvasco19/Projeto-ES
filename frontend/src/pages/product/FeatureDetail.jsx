@@ -495,7 +495,6 @@ function History({ feature }) {
   )
 }
 
-// ---------- Cabeçalho editável ----------
 function EditableHeader({ feature, editable, onChange }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({ title: feature.title, description: feature.description })
@@ -540,11 +539,9 @@ export default function FeatureDetail() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { role, base, productId } = useProduct()
-
   const { data, loading } = useData((s) => ({
     detail: s.featureDetail, backlog: s.backlog,
   }))
-
   const featureApi = useApi(`/products/${productId}/features/${featureId}`)
 
   const storyPath = `/products/${productId}/features/${featureId}/story`
@@ -577,6 +574,7 @@ export default function FeatureDetail() {
     storyPoints: f.storyPoints,
     team: f.teamName,
     assignee: f.assigneeId,
+    assigneeName: f.assigneeName,
     release: f.releaseName,
     releaseObjective: f.releaseObjective,
     sprint: null,

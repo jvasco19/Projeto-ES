@@ -16,6 +16,8 @@ tags:
   - name: Equipas
   - name: Membros
   - name: Funcionalidades
+  - name: User Stories
+  - name: Análise de pedidos
 
 paths:
   /health:
@@ -794,6 +796,153 @@ paths:
               example:
                 error: O estado foi alterado por outra pessoa. Atualiza a página.
                 field: null
+
+  /products/{productId}/backlog:
+    get:
+      tags: [Funcionalidades]
+      summary: Product Backlog do produto
+      description: >
+        Todas as funcionalidades do produto, pela ordem do backlog (position).
+        Inclui o impacto, o esforço e a prioridade calculada (impacto x 10 / esforço).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Backlog ordenado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BacklogItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/features:
+    post:
+      tags: [Funcionalidades]
+      summary: Cria uma funcionalidade no fim do backlog
+      description: >
+        Só para o Product Manager. A funcionalidade começa em "todo", fica na última
+        posição do backlog e a criação fica registada no histórico de estados.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeatureInput'
+      responses:
+        '201':
+          description: Funcionalidade criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItem'
+        '400':
+          description: Título em falta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Indica o título da funcionalidade
+                field: title
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotProductManager'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+
+  /products/{productId}/features/{featureId}/priority:
+    patch:
+      tags: [Funcionalidades]
+      summary: Altera o impacto e/ou o esforço e reordena o backlog pela prioridade
+      description: >
+        Só para o Product Manager. Pode enviar só o impacto, só o esforço ou os dois.
+        A prioridade é recalculada pela base de dados e o backlog é reordenado da maior
+        para a menor prioridade. Devolve o backlog inteiro já reordenado.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePriorityInput'
+      responses:
+        '200':
+          description: Backlog reordenado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BacklogItem'
+        '400':
+          description: Id inválido, nada enviado, ou impacto/esforço fora de 1 a 10
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: O impacto tem de ser um número inteiro de 1 a 10
+                field: impact
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotProductManager'
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
+
+  /products/{productId}/features/{featureId}/position:
+    patch:
+      tags: [Funcionalidades]
+      summary: Move a funcionalidade para outra posição do backlog
+      description: >
+        Só para o Product Manager. As outras funcionalidades andam uma posição para
+        abrir espaço. Uma posição maior que o tamanho do backlog põe-na no fim.
+        Devolve o backlog inteiro já reordenado.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePositionInput'
+      responses:
+        '200':
+          description: Backlog reordenado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BacklogItem'
+        '400':
+          description: Id inválido ou posição inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A posição tem de ser um número inteiro maior que 0
+                field: position
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotProductManager'
+        '404':
+          $ref: '#/components/responses/FeatureNotFound'
 
   /products/{productId}/features/{featureId}/story:
     get:
@@ -1707,6 +1856,15 @@ components:
           example:
             error: Funcionalidade não encontrada
             field: null
+    NotProductManager:
+      description: O utilizador é membro do produto, mas não é Product Manager
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Nao tens permissao para esta acao
+            field: null
   schemas:
     Error:
       type: object
@@ -2283,6 +2441,107 @@ components:
           $ref: '#/components/schemas/FeatureStatus'
       example:
         status: in_review
+
+    BacklogItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '3'
+        title:
+          type: string
+          example: Exportação de relatórios para Excel
+        status:
+          $ref: '#/components/schemas/FeatureStatus'
+        impact:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 10
+          example: 8
+        effort:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 10
+          example: 4
+        priority:
+          type: integer
+          nullable: true
+          description: Calculada pela base de dados (impacto x 10 / esforço, arredondado)
+          example: 20
+        storyPoints:
+          type: integer
+          nullable: true
+          example: 8
+        position:
+          type: integer
+          nullable: true
+          description: Posição no backlog, a começar em 1
+          example: 1
+        teamId:
+          type: string
+          nullable: true
+          example: '1'
+        teamName:
+          type: string
+          nullable: true
+          example: Core
+        assigneeId:
+          type: string
+          nullable: true
+          example: '2'
+        assigneeName:
+          type: string
+          nullable: true
+          example: Rui Matos
+        releaseName:
+          type: string
+          nullable: true
+          example: v1.2
+        hasStory:
+          type: boolean
+          description: true se a funcionalidade já tem user story
+          example: true
+
+    CreateFeatureInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          example: Modo escuro na aplicação
+        description:
+          type: string
+          nullable: true
+          example: Permitir escolher entre tema claro e escuro
+
+    ChangePriorityInput:
+      type: object
+      description: Envia pelo menos um dos dois campos
+      properties:
+        impact:
+          type: integer
+          minimum: 1
+          maximum: 10
+        effort:
+          type: integer
+          minimum: 1
+          maximum: 10
+      example:
+        impact: 9
+        effort: 3
+
+    ChangePositionInput:
+      type: object
+      required: [position]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: Nova posição no backlog, a começar em 1
+      example:
+        position: 1
 
     StoryInput:
       type: object

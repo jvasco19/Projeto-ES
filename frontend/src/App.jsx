@@ -12,6 +12,7 @@ import PublicRequests from './pages/personal/PublicRequests.jsx'
 import Teams from './pages/product/Teams.jsx'
 import Requests from './pages/product/Requests.jsx'
 import Sprints from './pages/product/Sprints.jsx'
+import Backlog from './pages/product/Backlog.jsx'
 import FeatureDetail from './pages/product/FeatureDetail.jsx'
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
         {/* Area do produto */}
         <Route path="/p/:productId/requests" element={<Requests />} />
         <Route path="/p/:productId/teams" element={<Teams />} />
+        <Route path="/p/:productId/backlog" element={<Backlog />} />
         <Route path="/p/:productId/sprints" element={<Sprints />} />
         <Route path="/p/:productId/features/:featureId" element={<FeatureDetail />} />
 

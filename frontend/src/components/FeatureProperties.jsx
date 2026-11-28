@@ -14,8 +14,6 @@ function Row({ label, children }) {
   )
 }
 
-// Painel de propriedades de uma funcionalidade (página de detalhe e vista rápida do board).
-// Cada campo só é editável pelo papel responsável por ele.
 export function FeatureProperties({ feature, role, base, onChange, onStatusChange }) {
   function set(changes, message) {
     onChange({ ...feature, ...changes })
@@ -29,7 +27,6 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
     label: featureStatus[s].label,
     disabled: s !== feature.status && !allowed.includes(s),
   }))
-
   const canChangeStatus = Boolean(onStatusChange) && (feature.canChangeStatus ?? can(role, 'status'))
 
   return (
@@ -43,16 +40,20 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
         )}
       </Row>
       <Row label="Responsável">
-        <div style={{ width: 180 }}>
-          <MemberPicker
-            variant="field"
-            value={feature.assignee}
-            team={feature.team}
-            canAssignOthers={can(role, 'assign')}
-            canSelfAssign={can(role, 'selfAssign')}
-            onChange={(id) => set({ assignee: id }, id ? 'Responsável atualizado.' : 'Funcionalidade sem responsável.')}
-          />
-        </div>
+        {feature.assigneeName !== undefined ? (
+          <Text size="sm" c={feature.assigneeName ? undefined : 'dimmed'}>{feature.assigneeName ?? 'Sem responsável'}</Text>
+        ) : (
+          <div style={{ width: 180 }}>
+            <MemberPicker
+              variant="field"
+              value={feature.assignee}
+              team={feature.team}
+              canAssignOthers={can(role, 'assign')}
+              canSelfAssign={can(role, 'selfAssign')}
+              onChange={(id) => set({ assignee: id }, id ? 'Responsável atualizado.' : 'Funcionalidade sem responsável.')}
+            />
+          </div>
+        )}
       </Row>
       <Row label="Equipa">
         <Select size="xs" w={160} placeholder="Por atribuir" disabled={!can(role, 'assignTeam')} aria-label="Equipa"
