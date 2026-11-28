@@ -1269,6 +1269,204 @@ paths:
                 error: Só é possível rejeitar um pedido que está em análise
                 field: null
 
+  /products:
+    post:
+      tags: [Produtos]
+      summary: Cria um produto (US18, CA1)
+      description: Quem cria o produto fica como Project Manager. É gerado o link para os clientes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductInput'
+      responses:
+        '201':
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProduct'
+        '400':
+          description: Nome em falta ou demasiado longo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Dá um nome ao produto
+                field: name
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /products/{productId}/milestones:
+    get:
+      tags: [Equipas]
+      summary: Lista as milestones do produto por data de entrega (US18)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Milestones do produto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Milestone'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotTeamMember'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+    post:
+      tags: [Equipas]
+      summary: Cria uma milestone (US18, CA3 e CA4)
+      description: Só para o Project Manager (CA5). A data de entrega não pode já ter passado (CA4).
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilestoneInput'
+      responses:
+        '201':
+          description: Milestone criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome em falta, data inválida ou data que já passou (CA4)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto (CA5)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Nao tens permissao para esta acao
+                field: null
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Já existe uma milestone com esse nome
+                field: name
+
+  /products/{productId}/milestones/{milestoneId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - name: milestoneId
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    patch:
+      tags: [Equipas]
+      summary: Edita o nome e/ou a data de entrega de uma milestone (US18)
+      description: >
+        Só para o Project Manager. Os campos que não forem enviados mantêm o valor atual.
+        Uma data nova não pode já ter passado; se a data não mudar, não é validada outra vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date
+            example:
+              dueDate: '2027-02-15'
+      responses:
+        '200':
+          description: Milestone atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Milestone'
+        '400':
+          description: Nome vazio, data inválida ou data que já passou
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: A data de entrega já passou
+                field: dueDate
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Milestone não encontrada
+                field: null
+        '409':
+          description: Já existe uma milestone com esse nome no produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Equipas]
+      summary: Apaga uma milestone (US18)
+      description: Só para o Project Manager. As releases ligadas a ela ficam sem milestone.
+      responses:
+        '204':
+          description: Milestone apagada
+        '400':
+          description: Id inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: O utilizador não é Project Manager deste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: A milestone não existe neste produto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 # Por defeito, todos os endpoints exigem o token
 security:
   - bearerAuth: []
@@ -2173,3 +2371,66 @@ components:
         reason:
           type: string
           example: Já existe uma funcionalidade planeada que resolve este problema.
+    # ---------- US18: produtos e milestones ----------
+    CreateProductInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+          example: CRM para equipas comerciais de PME.
+
+    CreatedProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '6'
+        name:
+          type: string
+          example: Atlas CRM
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          example: stream
+        linkToken:
+          type: string
+          description: Código do link que a equipa partilha com os clientes (/r/{linkToken})
+          example: atl-3F9A1C
+        role:
+          type: string
+          enum: [project_manager]
+
+    MilestoneInput:
+      type: object
+      required: [name, dueDate]
+      properties:
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          description: Não pode ser anterior a hoje (CA4)
+          example: '2027-01-31'
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: Entrega da versão 3
+        dueDate:
+          type: string
+          format: date
+          example: '2027-01-31'

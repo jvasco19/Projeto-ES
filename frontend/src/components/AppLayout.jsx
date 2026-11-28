@@ -10,12 +10,13 @@ import '@mantine/spotlight/styles.css'
 // A barra lateral lê diretamente dos dados de teste para não piscar entre páginas.
 import { backlog, myRequests, products, releases, triageRequests } from '../data/mockData.js'
 import { useApi } from '../data/useApi.js'
+import { api } from '../lib/api.js'
 import { getReadIds } from '../lib/readNotifications.js'
 import { can, roleLabels } from '../lib/labels.js'
 import { isLoggedIn, logout } from '../lib/auth.js'
-import { notifyError, useAction } from '../lib/feedback.jsx'
+import { notifyError, notifySuccess } from '../lib/feedback.jsx'
 import { Icon } from './Icon.jsx'
-import { Empty, Logo } from './ui.jsx'
+import { Empty, Logo, PageLoader } from './ui.jsx'
 import { ErrorBoundary } from './ErrorBoundary.jsx'
 
 const productNav = [
@@ -35,7 +36,7 @@ const createOptions = [
   { label: 'Funcionalidade', icon: 'add_task', to: '/backlog?criar=funcionalidade', needs: 'backlog' },
   { label: 'Sprint', icon: 'view_kanban', to: '/sprints?criar=sprint', needs: 'sprints' },
   { label: 'Release', icon: 'rocket_launch', to: '/roadmap?criar=release', needs: 'releases' },
-  { label: 'Milestone', icon: 'flag', to: '/roadmap?criar=milestone', needs: 'milestones' },
+  { label: 'Milestone', icon: 'flag', to: '/teams?criar=milestone', needs: 'milestones' },
   { label: 'Equipa', icon: 'group_add', to: '/teams?criar=equipa', needs: 'teams' },
   { label: 'Convite', icon: 'person_add', to: '/teams?criar=convite', needs: 'teams' },
 ]
@@ -57,23 +58,31 @@ function ContextAvatar({ name, color = 'stream', personal }) {
 
 function CreateProductModal({ opened, onClose, onCreate }) {
   const [form, setForm] = useState({ name: '', description: '' })
-  const [run, loading] = useAction()
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  function create() {
-    if (!form.name.trim()) return notifyError('Dá um nome ao produto.', 'Nome em falta')
-    run(`Produto "${form.name}" criado. És o Project Manager.`, () => {
-      onCreate(form)
+  async function create() {
+    if (!form.name.trim()) return setError('Dá um nome ao produto')
+    setLoading(true)
+    try {
+      await onCreate(form)
+      notifySuccess(`Produto "${form.name.trim()}" criado. És o Project Manager.`)
       setForm({ name: '', description: '' })
       onClose()
-    })
+    } catch (e) {
+      if (e.field === 'name') setError(e.message)
+      else notifyError(e.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Modal opened={opened} onClose={onClose} title="Criar produto">
       <Stack>
         <Text size="sm" c="dimmed">Ficas como Project Manager. A seguir convidas a equipa e partilhas o link com os clientes.</Text>
-        <TextInput label="Nome do produto" withAsterisk placeholder="Ex.: Atlas CRM" value={form.name} data-autofocus
-          onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
+        <TextInput label="Nome do produto" withAsterisk placeholder="Ex.: Atlas CRM" value={form.name} error={error} data-autofocus
+          onChange={(e) => { setForm({ ...form, name: e.currentTarget.value }); setError(null) }} />
         <Textarea label="Descrição" autosize minRows={2} placeholder="Para quem é e o que resolve" value={form.description}
           onChange={(e) => setForm({ ...form, description: e.currentTarget.value })} />
         <Group justify="flex-end">
@@ -230,10 +239,11 @@ export function AppLayout() {
     return path === base ? location.pathname === base : location.pathname.startsWith(path)
   }
 
-  function createProduct(form) {
-    const id = form.name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'produto'
-    setCreated([...created, { id, name: form.name, description: form.description, role: 'project_manager', color: 'orange', linkToken: `${id.slice(0, 3)}-N3W8QX`, members: 1, isNew: true }])
-    navigate(`/p/${id}`)
+  // CA1 (US18): cria o produto na API; quem o cria fica como Project Manager e segue para as equipas
+  async function createProduct(form) {
+    const newProduct = await api('/products', { method: 'POST', body: form })
+    setCreated([...created, { ...newProduct, isNew: true }])
+    navigate(`/p/${newProduct.id}/teams`)
   }
 
   return (
@@ -336,10 +346,12 @@ export function AppLayout() {
 
       <AppShell.Main>
         <div key={location.pathname} className="page" style={{ padding: 'clamp(16px, 3vw, 40px)', maxWidth: 1360, margin: '0 auto' }}>
-          {match && !product ? (
+          {match && !product && me.loading ? (
+            <PageLoader rows={1} />
+          ) : match && !product ? (
             <Center mih={420}>
               <Empty icon="search_off" title="Produto não encontrado"
-                description="Pode ter sido arquivado, ou deixaste de ser membro. Os produtos criados nesta sessão desaparecem ao recarregar a página (ainda sem backend).">
+                description="O produto não existe ou não és membro da equipa dele.">
                 <Button component={Link} to="/me" variant="light">Ir para a área pessoal</Button>
               </Empty>
             </Center>

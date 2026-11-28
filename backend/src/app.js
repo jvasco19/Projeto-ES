@@ -6,6 +6,8 @@ import { requireRole } from './middleware/requireRole.js';
 import { requestsRouter } from './modules/requests/requests.routes.js';
 import { triageRouter } from './modules/triage/triage.routes.js';
 import { meRouter } from './modules/me/me.routes.js';
+import { productsRouter } from './modules/products/products.routes.js';
+import { milestonesRouter } from './modules/milestones/milestones.routes.js';
 import { teamsRouter } from './modules/teams/teams.routes.js';
 import { membersRouter } from './modules/members/members.routes.js';
 import { storiesRouter } from './modules/stories/stories.routes.js';
@@ -30,6 +32,8 @@ app.get('/api/products/:productId/my-role',
 
 app.use('/api', requestsRouter);
 app.use('/api', teamsRouter);
+app.use('/api', productsRouter);
+app.use('/api', milestonesRouter);
 app.use('/api', triageRouter);
 app.use('/api', membersRouter);
 app.use('/api', storiesRouter);
