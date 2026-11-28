@@ -17,7 +17,6 @@ import { notifyError, notifySuccess, useAction } from '../../lib/feedback.jsx'
 import { can, featureStatus } from '../../lib/labels.js'
 import { useProduct } from '../../lib/useProduct.js'
 
-// ---------- Rastreabilidade (US10, US02) ----------
 function Traceability({ feature, hasStory }) {
   const steps = [
     { icon: 'inbox', title: 'Pedido do cliente', body: feature.request ? `"${feature.request.text}"` : 'Criada pela equipa, sem pedido de cliente.', meta: feature.request ? `${feature.request.id} · ${feature.request.customer} · ${feature.request.submittedAt}` : null },
@@ -53,7 +52,6 @@ function Traceability({ feature, hasStory }) {
   )
 }
 
-// ---------- User Story e critérios (US16, US17) ----------
 function StoryEditor({ initial, draft, onSave, onCancel }) {
   const [story, setStory] = useState(initial)
   const [errors, setErrors] = useState({})
@@ -138,7 +136,7 @@ function Criteria({ items, setItems, editable }) {
 
 function StoryTab({ feature, hasStory, editable, aiDraft, initialDraft }) {
   const [story, setStory] = useState(hasStory && !initialDraft ? feature.userStory : null)
-  const [mode, setMode] = useState(initialDraft ? 'draft' : null) // 'edit' | 'draft' | 'manual'
+  const [mode, setMode] = useState(initialDraft ? 'draft' : null)
   const [generating, setGenerating] = useState(false)
   const [criteria, setCriteria] = useState(hasStory ? feature.criteria : [])
 
@@ -187,10 +185,8 @@ function StoryTab({ feature, hasStory, editable, aiDraft, initialDraft }) {
   )
 }
 
-// ---------- Dependências (US04) ----------
 function statusColor(n) {
   if (n.late) return 'red'
-  // As dependências (US04) ainda são dados de teste, com os estados antigos em português
   return featureStatus[n.status]?.color ?? 'gray'
 }
 
@@ -311,7 +307,6 @@ function Dependencies({ feature, backlog, base }) {
   )
 }
 
-// ---------- Discussão (US19, US20) ----------
 const memberNames = ['rui', 'beatriz', 'tiago', 'daniel', 'leonor', 'inês', 'ines', 'miguel', 'joana']
 
 function checkMentions(text) {
@@ -438,7 +433,6 @@ function Discussion({ feature, canDecide }) {
   )
 }
 
-// ---------- Histórico (US12, US11) ----------
 function History({ feature }) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
@@ -467,7 +461,6 @@ function History({ feature }) {
   )
 }
 
-// ---------- Cabeçalho editável ----------
 function EditableHeader({ feature, editable, onChange }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({ title: feature.title, description: feature.description })
@@ -512,11 +505,9 @@ export default function FeatureDetail() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { role, base, productId } = useProduct()
-  // Dados de outras US (pedido, User Story, critérios, dependências, discussão, versões): ainda de teste
   const { data, loading } = useData((s) => ({
     detail: s.featureDetail, backlog: s.backlog, aiDraft: s.aiStoryDraft, requirements: s.requirements,
   }))
-  // US11: a funcionalidade, o estado e o histórico vêm da API
   const featureApi = useApi(`/products/${productId}/features/${featureId}`)
   const [updated, setUpdated] = useState(null)
   const [changing, setChanging] = useState(false)
@@ -536,7 +527,6 @@ export default function FeatureDetail() {
     )
   }
 
-  // Depois de mudar o estado, usa a resposta do PATCH (já traz o histórico novo)
   const f = updated ?? featureApi.data
   const feature = {
     ...data.detail,
@@ -546,15 +536,13 @@ export default function FeatureDetail() {
     storyPoints: f.storyPoints,
     team: f.teamName,
     assignee: f.assigneeId,
-    // Alterações locais de outras US (ainda sem endpoint)
+    assigneeName: f.assigneeName,
     ...overrides,
-    // US11: o estado e o histórico vêm sempre da API
     status: f.status,
     allowedStatuses: f.allowedStatuses,
     canChangeStatus: f.canChangeStatus,
     statusLog: f.statusLog,
   }
-  // A User Story vem da lista de Requisitos, para a página e a lista mostrarem o mesmo
   const req = data.requirements.find((r) => r.featureId === featureId)
   const parts = req?.story?.match(/^Como (.+?), quero (.+?), para (.+?)\.?$/)
   const userStory = parts ? { role: parts[1], goal: parts[2], benefit: parts[3] } : data.detail.userStory
@@ -564,7 +552,6 @@ export default function FeatureDetail() {
   const nextStatus = f.nextStatus
   const canEdit = can(role, 'editFeature')
 
-  // US11: muda o estado na API. A resposta já traz o estado novo e o histórico atualizado.
   async function changeStatus(status) {
     setChanging(true)
     try {

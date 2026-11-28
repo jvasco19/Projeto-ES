@@ -14,16 +14,12 @@ function Row({ label, children }) {
   )
 }
 
-// Painel de propriedades de uma funcionalidade (página de detalhe e vista rápida do board).
-// Cada campo só é editável pelo papel responsável por ele.
 export function FeatureProperties({ feature, role, base, onChange, onStatusChange }) {
   function set(changes, message) {
     onChange({ ...feature, ...changes })
     notifySuccess(message)
   }
 
-  // US11: os estados permitidos vêm da API (allowedStatuses); se não vierem,
-  // é um passo para trás ou para a frente, como no backend.
   const statusIndex = featureFlow.indexOf(feature.status)
   const allowed = feature.allowedStatuses ?? featureFlow.filter((s, i) => Math.abs(i - statusIndex) === 1)
   const statusOptions = featureFlow.map((s) => ({
@@ -31,7 +27,6 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
     label: featureStatus[s].label,
     disabled: s !== feature.status && !allowed.includes(s),
   }))
-  // Só mostra o select a quem pode mudar o estado (developer da equipa: canChangeStatus vem da API)
   const canChangeStatus = Boolean(onStatusChange) && (feature.canChangeStatus ?? can(role, 'status'))
 
   return (
@@ -45,16 +40,20 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
         )}
       </Row>
       <Row label="Responsável">
-        <div style={{ width: 180 }}>
-          <MemberPicker
-            variant="field"
-            value={feature.assignee}
-            team={feature.team}
-            canAssignOthers={can(role, 'assign')}
-            canSelfAssign={can(role, 'selfAssign')}
-            onChange={(id) => set({ assignee: id }, id ? 'Responsável atualizado.' : 'Funcionalidade sem responsável.')}
-          />
-        </div>
+        {feature.assigneeName !== undefined ? (
+          <Text size="sm" c={feature.assigneeName ? undefined : 'dimmed'}>{feature.assigneeName ?? 'Sem responsável'}</Text>
+        ) : (
+          <div style={{ width: 180 }}>
+            <MemberPicker
+              variant="field"
+              value={feature.assignee}
+              team={feature.team}
+              canAssignOthers={can(role, 'assign')}
+              canSelfAssign={can(role, 'selfAssign')}
+              onChange={(id) => set({ assignee: id }, id ? 'Responsável atualizado.' : 'Funcionalidade sem responsável.')}
+            />
+          </div>
+        )}
       </Row>
       <Row label="Equipa">
         <Select size="xs" w={160} placeholder="Por atribuir" disabled={!can(role, 'assignTeam')} aria-label="Equipa"
