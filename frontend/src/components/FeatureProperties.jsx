@@ -22,8 +22,6 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
     notifySuccess(message)
   }
 
-  // US11: os estados permitidos vêm da API (allowedStatuses); se não vierem,
-  // é um passo para trás ou para a frente, como no backend.
   const statusIndex = featureFlow.indexOf(feature.status)
   const allowed = feature.allowedStatuses ?? featureFlow.filter((s, i) => Math.abs(i - statusIndex) === 1)
   const statusOptions = featureFlow.map((s) => ({
@@ -31,7 +29,7 @@ export function FeatureProperties({ feature, role, base, onChange, onStatusChang
     label: featureStatus[s].label,
     disabled: s !== feature.status && !allowed.includes(s),
   }))
-  // Só mostra o select a quem pode mudar o estado (developer da equipa: canChangeStatus vem da API)
+
   const canChangeStatus = Boolean(onStatusChange) && (feature.canChangeStatus ?? can(role, 'status'))
 
   return (
